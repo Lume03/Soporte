@@ -8,20 +8,16 @@ export const initialTickets: Ticket[] = [
 
 export const faqData: FaqItem[] = [
   {
-    question: '¿Cómo puedo restablecer mi contraseña?',
-    answer: 'Para restablecer tu contraseña, ve a la página de inicio de sesión y haz clic en "¿Olvidaste tu contraseña?". Sigue las instrucciones que se te envíen a tu correo electrónico.',
+    question: '¿Cómo prendo el proyector?',
+    answer: 'Para prender el proyector, busca el control remoto, presiona el botón rojo de encendido y espera a que la luz se ponga verde. Asegúrate de que esté conectado a la corriente.',
   },
   {
-    question: '¿Dónde puedo encontrar mis facturas?',
-    answer: 'Tus facturas están disponibles en la sección "Facturación" de la configuración de tu cuenta. Puedes ver y descargar todas tus facturas anteriores desde allí.',
+    question: '¿Cómo cambio mi contraseña de Gmail?',
+    answer: 'Para cambiar tu contraseña de Gmail, ve a la configuración de tu cuenta de Google, selecciona la pestaña "Seguridad" y busca la opción "Contraseña". Sigue los pasos para cambiarla.',
   },
   {
-    question: '¿Ofrecen un período de prueba gratuito?',
-    answer: 'Sí, ofrecemos un período de prueba gratuito de 14 días para todos nuestros planes. No se requiere tarjeta de crédito para registrarse en la prueba.',
-  },
-  {
-    question: '¿Cómo puedo cancelar mi suscripción?',
-    answer: 'Puedes cancelar tu suscripción en cualquier momento desde la sección "Suscripción" en la configuración de tu cuenta. Tu suscripción permanecerá activa hasta el final del ciclo de facturación actual.',
+    question: '¿Cómo comparto un link de Meet?',
+    answer: 'Para compartir un enlace de Meet, crea una nueva reunión en Google Meet. Una vez creada, copia el enlace de la reunión y pégalo en un correo, chat o donde necesites compartirlo.',
   },
 ];
 
