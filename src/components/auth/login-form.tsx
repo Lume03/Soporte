@@ -59,7 +59,7 @@ export function LoginForm() {
             <Label htmlFor="email">Email Address</Label>
             <Input id="email" type="email" placeholder="you@example.com" required defaultValue="personal_1@corp.com" />
           </div>
-          <Link href="/chat" className="w-full" passHref>
+          <Link href="/" className="w-full" passHref>
             <Button className="w-full">Send Magic Link</Button>
           </Link>
         </div>
