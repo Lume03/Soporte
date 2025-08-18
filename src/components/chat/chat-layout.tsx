@@ -3,15 +3,17 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { PanelLeft, Plus } from 'lucide-react';
+import { PanelLeft, Plus, PanelLeftClose } from 'lucide-react';
 import { TicketList } from '@/components/tickets/ticket-list';
 import type { Ticket } from '@/lib/types';
 import { initialTickets } from '@/lib/data';
 import { Logo } from '@/components/logo';
 import { CreateTicketDialog } from '../tickets/create-ticket-dialog';
+import { cn } from '@/lib/utils';
 
 export function ChatLayout({ children }: { children: React.ReactNode }) {
   const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
   const addTicket = (newTicket: Omit<Ticket, 'id' | 'date' | 'status'>) => {
     setTickets(prev => [
@@ -48,22 +50,32 @@ export function ChatLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen w-full bg-background">
-      <aside className="hidden md:flex md:w-80 lg:w-96 flex-col border-r bg-card">
+      <aside className={cn(
+        "hidden md:flex flex-col border-r bg-card transition-all duration-300",
+        isSidebarOpen ? "md:w-80 lg:w-96" : "md:w-0"
+      )}
+      >
         {sidebarContent}
       </aside>
       <div className="flex flex-1 flex-col">
-        <header className="flex h-16 items-center justify-between border-b bg-card px-4 md:justify-end">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden">
-                <PanelLeft className="h-6 w-6" />
+        <header className="flex h-16 items-center justify-between border-b bg-card px-4">
+          <div className='flex items-center gap-2'>
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden">
+                  <PanelLeft className="h-6 w-6" />
+                  <span className="sr-only">Toggle Sidebar</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="p-0 w-80 bg-card">
+                {sidebarContent}
+              </SheetContent>
+            </Sheet>
+            <Button variant="ghost" size="icon" className="hidden md:inline-flex" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+                {isSidebarOpen ? <PanelLeftClose className="h-6 w-6" /> : <PanelLeft className="h-6 w-6" />}
                 <span className="sr-only">Toggle Sidebar</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-80 bg-card">
-              {sidebarContent}
-            </SheetContent>
-          </Sheet>
+            </Button>
+          </div>
           {/* User menu can be added here */}
         </header>
         {React.Children.map(children, child => {
