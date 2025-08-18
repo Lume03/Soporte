@@ -21,10 +21,17 @@ export default function ChatPage({ addTicket }: { addTicket: (ticket: Omit<Ticke
 
     try {
       const response = await handleMessageSubmit(content);
-      const assistantMessage: Message = { id: crypto.randomUUID(), role: 'assistant', content: response.answer };
+      const assistantMessage: Message = { 
+        id: crypto.randomUUID(), 
+        role: 'assistant', 
+        content: response.answer,
+        answered: response.answered,
+        subject: response.subject,
+        body: response.body,
+      };
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
-      const errorMessage: Message = { id: crypto.randomUUID(), role: 'assistant', content: "Lo siento, ha ocurrido un error. Por favor, intenta de nuevo." };
+      const errorMessage: Message = { id: crypto.randomUUID(), role: 'assistant', content: "Lo siento, ha ocurrido un error. Por favor, intenta de nuevo.", answered: false };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -33,7 +40,7 @@ export default function ChatPage({ addTicket }: { addTicket: (ticket: Omit<Ticke
   
   const handleFaqClick = (question: string, answer: string) => {
     const userMessage: Message = { id: crypto.randomUUID(), role: 'user', content: question };
-    const assistantMessage: Message = { id: crypto.randomUUID(), role: 'assistant', content: answer };
+    const assistantMessage: Message = { id: crypto.randomUUID(), role: 'assistant', content: answer, answered: true };
     setMessages(prev => [...prev, userMessage, assistantMessage]);
   };
 

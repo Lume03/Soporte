@@ -2,6 +2,9 @@ export type Message = {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  answered?: boolean;
+  subject?: string;
+  body?: string;
 };
 
 export type TicketStatus = 'En Proceso' | 'Finalizado';

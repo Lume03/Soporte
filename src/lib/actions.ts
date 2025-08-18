@@ -13,7 +13,12 @@ export async function submitMessage(message: string): Promise<AnswerFAQOutput> {
     return result;
   } catch (error) {
     console.error("Error calling AI flow:", error);
-    return { answer: "Lo siento, estoy teniendo problemas para conectarme con mis servicios de IA. Por favor, intenta de nuevo más tarde." };
+    return { 
+      answered: false,
+      answer: "Lo siento, estoy teniendo problemas para conectarme con mis servicios de IA. Por favor, intenta de nuevo más tarde o contacta a soporte.",
+      subject: "Error de IA - Consulta de Usuario",
+      body: `El sistema de IA no pudo procesar la siguiente consulta:\n\n"${message}"\n\nPor favor, describe tu problema a continuación:`
+    };
   }
 }
 

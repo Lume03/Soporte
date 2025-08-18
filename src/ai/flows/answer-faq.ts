@@ -17,7 +17,10 @@ const AnswerFAQInputSchema = z.object({
 export type AnswerFAQInput = z.infer<typeof AnswerFAQInputSchema>;
 
 const AnswerFAQOutputSchema = z.object({
-  answer: z.string().describe('The answer to the question from the FAQ.'),
+  answered: z.boolean().describe('Whether the question was answered from the FAQ.'),
+  answer: z.string().describe('The answer to the question from the FAQ. If not answered, this will be a message indicating so.'),
+  subject: z.string().optional().describe('A suggested subject line for a support email if the question was not answered.'),
+  body: z.string().optional().describe('A suggested body for a support email if the question was not answered.'),
 });
 export type AnswerFAQOutput = z.infer<typeof AnswerFAQOutputSchema>;
 
@@ -29,14 +32,18 @@ const prompt = ai.definePrompt({
   name: 'answerFAQPrompt',
   input: {schema: AnswerFAQInputSchema},
   output: {schema: AnswerFAQOutputSchema},
-  prompt: `You are an AI chatbot that answers questions based on the provided FAQ document.
+  prompt: `You are a professional AI support chatbot. Your goal is to answer user questions based *only* on the provided FAQ document.
+
+Analyze the user's question and determine if it can be answered using the FAQ.
+
+- If you can answer the question, set "answered" to true and provide a direct, professional answer in the "answer" field.
+- If the FAQ document does not contain the answer, you MUST set "answered" to false. In the "answer" field, write a message like: "No puedo responder tu pregunta con la información que tengo. Sin embargo, puedes contactar a nuestro equipo de soporte para obtener ayuda."
+- If the question was not answered, you MUST also generate a relevant "subject" and "body" for a support email based on the user's question. The body should be a template that the user can fill out.
 
 FAQ Document:
-{{faq}}
+{{{faq}}}
 
-Question: {{question}}
-
-Answer:`,
+User Question: {{question}}`,
 });
 
 const answerFAQFlow = ai.defineFlow(
