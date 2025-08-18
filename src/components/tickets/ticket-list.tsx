@@ -44,7 +44,9 @@ export function TicketList({ tickets }: { tickets: Ticket[] }) {
       <Accordion type="multiple" defaultValue={['en-proceso', 'finalizado']} className="w-full">
         <AccordionItem value="en-proceso">
           <AccordionTrigger className="text-base font-medium hover:no-underline">
-            En Proceso <Badge variant="secondary" className="ml-2">{inProgressTickets.length}</Badge>
+            <span className="flex items-center gap-2">
+              En Proceso <Badge variant="secondary">{inProgressTickets.length}</Badge>
+            </span>
           </AccordionTrigger>
           <AccordionContent>
             <ul className="space-y-1 pt-2">
@@ -56,7 +58,9 @@ export function TicketList({ tickets }: { tickets: Ticket[] }) {
         </AccordionItem>
         <AccordionItem value="finalizado">
           <AccordionTrigger className="text-base font-medium hover:no-underline">
-            Finalizado <Badge variant="secondary" className="ml-2">{finishedTickets.length}</Badge>
+            <span className="flex items-center gap-2">
+              Finalizado <Badge variant="secondary">{finishedTickets.length}</Badge>
+            </span>
           </AccordionTrigger>
           <AccordionContent>
             <ul className="space-y-1 pt-2">
