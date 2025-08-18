@@ -13,7 +13,10 @@ export function ChatMessage({ message, addTicket }: { message: Message, addTicke
   const mailtoHref = `mailto:luquealonso151@gmail.com?subject=${encodeURIComponent(message.subject || 'Consulta de Soporte')}&body=${encodeURIComponent(message.body || 'Hola, necesito ayuda con lo siguiente:\n\n')}`;
 
   return (
-    <div className={cn('flex items-start gap-4', isUser ? 'justify-end' : 'justify-start')}>
+    <div className={cn(
+      'flex items-start gap-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500', 
+      isUser ? 'justify-end' : 'justify-start'
+    )}>
       {!isUser && (
         <Avatar className="h-8 w-8 border">
           <AvatarFallback className="bg-primary text-primary-foreground">
@@ -30,7 +33,7 @@ export function ChatMessage({ message, addTicket }: { message: Message, addTicke
         )}
       >
         <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
-        {!isUser && (
+        {!isUser && message.answered !== undefined && (
           <div className="mt-3 pt-3 border-t border-t-border">
              {message.answered === false ? (
                  <Button asChild variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs text-muted-foreground hover:text-foreground">
