@@ -29,10 +29,9 @@ export function CreateTicketDialog({ children, initialQuestion, onTicketCreated 
     setIsLoading(true);
     const formData = new FormData(event.currentTarget);
     const subject = formData.get('subject') as string;
-    const description = formData.get('description') as string;
     
     try {
-        const result = await createTicket(subject, description);
+        const result = await createTicket(subject);
         if (result.success) {
             onTicketCreated({ subject });
             toast({
@@ -64,17 +63,13 @@ export function CreateTicketDialog({ children, initialQuestion, onTicketCreated 
             <DialogHeader>
             <DialogTitle>Crear Nueva Solicitud</DialogTitle>
             <DialogDescription>
-                Describe tu problema y nuestro equipo de soporte se pondrá en contacto contigo.
+                Ingresa el asunto de tu solicitud.
             </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
                 <div className="space-y-2">
                     <Label htmlFor="subject">Asunto</Label>
                     <Input id="subject" name="subject" defaultValue={initialQuestion ? `Consulta sobre: "${initialQuestion.substring(0, 40)}..."` : ""} />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="description">Descripción</Label>
-                    <Textarea id="description" name="description" placeholder="Describe tu problema en detalle..." />
                 </div>
             </div>
             <DialogFooter>

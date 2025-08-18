@@ -15,6 +15,7 @@ import Link from 'next/link';
 export function ChatLayout({ children }: { children: React.ReactNode }) {
   const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [chatKey, setChatKey] = useState(Date.now());
   
   const addTicket = (newTicket: Omit<Ticket, 'id' | 'date' | 'status'>) => {
     setTickets(prev => [
@@ -26,6 +27,10 @@ export function ChatLayout({ children }: { children: React.ReactNode }) {
         },
         ...prev
     ]);
+  };
+
+  const startNewChat = () => {
+    setChatKey(Date.now());
   };
 
   const sidebarHeader = (
@@ -46,11 +51,9 @@ export function ChatLayout({ children }: { children: React.ReactNode }) {
         <TicketList tickets={tickets} />
       </div>
       <div className="p-4 border-t">
-        <CreateTicketDialog onTicketCreated={addTicket}>
-          <Button className="w-full">
+          <Button className="w-full" onClick={startNewChat}>
             <Plus className="mr-2 h-4 w-4" /> Nueva Solicitud
           </Button>
-        </CreateTicketDialog>
       </div>
     </div>
   );
@@ -75,11 +78,9 @@ export function ChatLayout({ children }: { children: React.ReactNode }) {
                 <TicketList tickets={tickets} />
             </div>
             <div className={cn("p-4 border-t", !isSidebarOpen && "hidden")}>
-                <CreateTicketDialog onTicketCreated={addTicket}>
-                <Button className="w-full">
-                    <Plus className="mr-2 h-4 w-4" /> Nueva Solicitud
-                </Button>
-                </CreateTicketDialog>
+              <Button className="w-full" onClick={startNewChat}>
+                  <Plus className="mr-2 h-4 w-4" /> Nueva Solicitud
+              </Button>
             </div>
         </div>
       </aside>
@@ -107,11 +108,9 @@ export function ChatLayout({ children }: { children: React.ReactNode }) {
                     <TicketList tickets={tickets} />
                 </div>
                 <div className="p-4 border-t">
-                    <CreateTicketDialog onTicketCreated={addTicket}>
-                    <Button className="w-full">
+                    <Button className="w-full" onClick={startNewChat}>
                         <Plus className="mr-2 h-4 w-4" /> Nueva Solicitud
                     </Button>
-                    </CreateTicketDialog>
                 </div>
                 </div>
               </SheetContent>
@@ -127,7 +126,8 @@ export function ChatLayout({ children }: { children: React.ReactNode }) {
         </header>
         {React.Children.map(children, child => {
             if (React.isValidElement(child)) {
-                return React.cloneElement(child, { tickets, addTicket } as any);
+                // Add key to force re-mount when it changes
+                return React.cloneElement(child, { key: chatKey, tickets, addTicket } as any);
             }
             return child;
         })}

@@ -22,8 +22,8 @@ export async function submitMessage(message: string): Promise<AnswerFAQOutput> {
   }
 }
 
-export async function createTicket(subject: string, description: string): Promise<{ success: boolean, ticketId: string }> {
-  console.log("Creating ticket:", { subject, description });
+export async function createTicket(subject: string): Promise<{ success: boolean, ticketId: string }> {
+  console.log("Creating ticket:", { subject });
   // In a real app, you would save this to a database.
   await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network latency
   const ticketId = `SOL-${String(Math.floor(Math.random() * 900) + 100).padStart(3, '0')}`;
