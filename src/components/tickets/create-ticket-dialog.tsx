@@ -36,8 +36,8 @@ export function CreateTicketDialog({ children, initialQuestion, onTicketCreated 
         if (result.success) {
             onTicketCreated({ subject });
             toast({
-                title: "Ticket Creado",
-                description: `Tu ticket ${result.ticketId} ha sido creado exitosamente.`,
+                title: "Solicitud Creada",
+                description: `Tu solicitud ${result.ticketId} ha sido creada exitosamente.`,
                 variant: "default",
                 className: "bg-accent text-accent-foreground"
             });
@@ -48,7 +48,7 @@ export function CreateTicketDialog({ children, initialQuestion, onTicketCreated 
     } catch (error) {
         toast({
             title: "Error",
-            description: "No se pudo crear el ticket. Por favor, intenta de nuevo.",
+            description: "No se pudo crear la solicitud. Por favor, intenta de nuevo.",
             variant: "destructive",
         });
     } finally {
@@ -62,7 +62,7 @@ export function CreateTicketDialog({ children, initialQuestion, onTicketCreated 
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit}>
             <DialogHeader>
-            <DialogTitle>Crear Nuevo Ticket</DialogTitle>
+            <DialogTitle>Crear Nueva Solicitud</DialogTitle>
             <DialogDescription>
                 Describe tu problema y nuestro equipo de soporte se pondrá en contacto contigo.
             </DialogDescription>
@@ -81,7 +81,7 @@ export function CreateTicketDialog({ children, initialQuestion, onTicketCreated 
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
             <Button type="submit" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Crear Ticket
+                Crear Solicitud
             </Button>
             </DialogFooter>
         </form>

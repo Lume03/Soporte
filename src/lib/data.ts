@@ -1,9 +1,9 @@
 import type { Ticket, FaqItem } from './types';
 
 export const initialTickets: Ticket[] = [
-  { id: 'TICK-001', subject: 'Problema con la facturación', status: 'En Proceso', date: '2024-07-28' },
-  { id: 'TICK-002', subject: 'No puedo acceder a mi cuenta', status: 'Finalizado', date: '2024-07-27' },
-  { id: 'TICK-003', subject: 'API no responde', status: 'En Proceso', date: '2024-07-29' },
+  { id: 'SOL-001', subject: 'Problema con la facturación', status: 'En Proceso', date: '2024-07-28' },
+  { id: 'SOL-002', subject: 'No puedo acceder a mi cuenta', status: 'Finalizado', date: '2024-07-27' },
+  { id: 'SOL-003', subject: 'API no responde', status: 'En Proceso', date: '2024-07-29' },
 ];
 
 export const faqData: FaqItem[] = [

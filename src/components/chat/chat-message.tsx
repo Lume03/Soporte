@@ -36,7 +36,7 @@ export function ChatMessage({ message, addTicket }: { message: Message, addTicke
              >
                 <Button variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs text-muted-foreground hover:text-foreground">
                     <TicketIcon className="mr-1.5 h-3 w-3" />
-                    ¿Aún necesitas ayuda? Crear ticket
+                    ¿Aún necesitas ayuda? Crear solicitud
                 </Button>
             </CreateTicketDialog>
           </div>

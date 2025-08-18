@@ -17,7 +17,7 @@ export function ChatLayout({ children }: { children: React.ReactNode }) {
     setTickets(prev => [
         { 
             ...newTicket, 
-            id: `TICK-${String(prev.length + 1).padStart(3, '0')}`,
+            id: `SOL-${String(prev.length + 1).padStart(3, '0')}`,
             date: new Date().toISOString().split('T')[0],
             status: 'En Proceso'
         },
@@ -39,7 +39,7 @@ export function ChatLayout({ children }: { children: React.ReactNode }) {
       <div className="p-4 border-t">
         <CreateTicketDialog onTicketCreated={addTicket}>
           <Button className="w-full">
-            <Plus className="mr-2 h-4 w-4" /> Nuevo Ticket
+            <Plus className="mr-2 h-4 w-4" /> Nueva Solicitud
           </Button>
         </CreateTicketDialog>
       </div>

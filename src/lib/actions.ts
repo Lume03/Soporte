@@ -21,6 +21,6 @@ export async function createTicket(subject: string, description: string): Promis
   console.log("Creating ticket:", { subject, description });
   // In a real app, you would save this to a database.
   await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network latency
-  const ticketId = `TICK-${String(Math.floor(Math.random() * 900) + 100).padStart(3, '0')}`;
+  const ticketId = `SOL-${String(Math.floor(Math.random() * 900) + 100).padStart(3, '0')}`;
   return { success: true, ticketId };
 }
