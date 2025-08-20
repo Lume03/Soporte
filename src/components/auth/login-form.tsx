@@ -1,12 +1,9 @@
 "use client";
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { Bot } from 'lucide-react';
 
 // Credenciales fijas para demo
 const DEMO_CREDENTIALS = {
@@ -42,7 +39,7 @@ export function LoginForm() {
       setTimeout(() => {
         toast({
           title: "Error de autenticación",
-          description: "El correo o contraseña son incorrectos. Usa las credenciales de demo.",
+          description: "El correo o contraseña son incorrectos.",
           variant: "destructive",
         });
         setIsLoading(false);
@@ -51,68 +48,65 @@ export function LoginForm() {
   };
   
   return (
-    <>
-      <Card className="w-full max-w-md shadow-2xl border-0">
-        <CardHeader className="space-y-1 pt-12 pb-8 px-10">
-          <CardTitle className="text-2xl font-bold text-center">
-            Iniciar Sesión
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-10 pb-12">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="sr-only">
-                Correo electrónico
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="correo electrónico"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="h-14 px-5 bg-gray-50 border-gray-200 focus:bg-white text-base"
-                disabled={isLoading}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className="sr-only">
-                Contraseña
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="contraseña"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="h-14 px-5 bg-gray-50 border-gray-200 focus:bg-white text-base"
-                disabled={isLoading}
-              />
-            </div>
-            <div className="pt-3">
-              <Button
-                type="submit"
-                className="w-full h-14 text-base font-medium bg-[#4285f4] hover:bg-[#357ae8] text-white"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Iniciando...' : 'Iniciar sesión'}
-              </Button>
-            </div>
-          </form>
-          
-          {/* Información de credenciales demo */}
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <p className="text-xs text-center text-blue-700 font-medium mb-2">
-              Credenciales de Demo:
-            </p>
-            <p className="text-xs text-center text-blue-600">
-              Email: pepe.gonzalez@empresa.com<br/>
-              Contraseña: soporte123
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    </>
+    <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-10">
+      {/* Logo */}
+      <div className="flex justify-center mb-6">
+        <div className="w-16 h-16 bg-[#4285f4] rounded-lg flex items-center justify-center">
+          <Bot className="h-9 w-9 text-white" />
+        </div>
+      </div>
+      
+      {/* Título */}
+      <h1 className="text-2xl font-bold text-center text-gray-900 mb-2">
+        Bienvenido a Soporte
+      </h1>
+      
+      {/* Subtítulo */}
+      <p className="text-sm text-center text-gray-500 mb-8">
+        Tu asistente de soporte impulsado por IA.
+      </p>
+      
+      {/* Formulario */}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <input
+            type="email"
+            placeholder="correo electrónico"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            disabled={isLoading}
+            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#4285f4] focus:bg-white transition-all text-sm"
+          />
+        </div>
+        
+        <div>
+          <input
+            type="password"
+            placeholder="contraseña"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            disabled={isLoading}
+            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#4285f4] focus:bg-white transition-all text-sm"
+          />
+        </div>
+        
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full py-3 bg-[#4285f4] hover:bg-[#3367d6] text-white font-medium rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed mt-6"
+        >
+          {isLoading ? 'Iniciando...' : 'Iniciar sesión'}
+        </button>
+      </form>
+      
+      {/* Info de credenciales demo (opcional - quitar en producción) */}
+      <div className="mt-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
+        <p className="text-xs text-center text-blue-700">
+          <strong>Demo:</strong> pepe.gonzalez@empresa.com / soporte123
+        </p>
+      </div>
+    </div>
   );
 }

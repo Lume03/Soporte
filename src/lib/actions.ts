@@ -4,20 +4,31 @@ import { answerFAQ } from '@/ai/flows/answer-faq';
 import { faqDocument } from './data';
 import type { AnswerFAQOutput } from '@/ai/flows/answer-faq';
 
-export async function submitMessage(message: string): Promise<AnswerFAQOutput> {
+export interface ExtendedAnswerFAQOutput extends AnswerFAQOutput {
+  showFeedback?: boolean;
+}
+
+export async function submitMessage(message: string): Promise<ExtendedAnswerFAQOutput> {
   try {
     const result = await answerFAQ({
       question: message,
       faq: faqDocument,
     });
-    return result;
+    
+    // Añadir showFeedback solo si la respuesta fue exitosa (answered = true)
+    // No mostrar feedback si es un mensaje de escalación a soporte (answered = false)
+    return {
+      ...result,
+      showFeedback: result.answered === true
+    };
   } catch (error) {
     console.error("Error calling AI flow:", error);
     return { 
       answered: false,
       answer: "Lo siento, estoy teniendo problemas para conectarme con mis servicios de IA. Por favor, intenta de nuevo más tarde o contacta a soporte.",
       subject: "Error de IA - Consulta de Usuario",
-      body: `El sistema de IA no pudo procesar la siguiente consulta:\n\n"${message}"\n\nPor favor, describe tu problema a continuación:`
+      body: `El sistema de IA no pudo procesar la siguiente consulta:\n\n"${message}"\n\nPor favor, describe tu problema a continuación:`,
+      showFeedback: false
     };
   }
 }

@@ -1,7 +1,7 @@
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { faqData } from "@/lib/data";
-import { MessageSquarePlus } from "lucide-react";
+import { ChevronRight, MessageCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export function FaqSection({ onFaqClick }: { onFaqClick: (question: string, answer: string) => void }) {
   return (
@@ -10,22 +10,34 @@ export function FaqSection({ onFaqClick }: { onFaqClick: (question: string, answ
         <h2 className="text-3xl font-bold tracking-tight">Preguntas Frecuentes</h2>
         <p className="text-muted-foreground mt-2">Encuentra respuestas rápidas a preguntas comunes.</p>
       </div>
-      <Accordion type="single" collapsible className="w-full">
+      
+      <div className="space-y-3">
         {faqData.map((faq, index) => (
-          <AccordionItem value={`item-${index}`} key={index}>
-            <AccordionTrigger className="text-left hover:no-underline text-base">{faq.question}</AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-4 pt-2">
-                <p className="text-muted-foreground">{faq.answer}</p>
-                <Button variant="ghost" size="sm" onClick={() => onFaqClick(faq.question, faq.answer)}>
-                  <MessageSquarePlus className="mr-2 h-4 w-4" />
-                  Añadir al chat
-                </Button>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
+          <button
+            key={index}
+            onClick={() => onFaqClick(faq.question, faq.answer)}
+            className={cn(
+              "w-full text-left p-4 rounded-lg bg-white border border-gray-200",
+              "hover:border-[#4285f4] hover:shadow-md transition-all duration-200",
+              "group flex items-center justify-between"
+            )}
+          >
+            <div className="flex items-start gap-3 flex-1">
+              <MessageCircle className="h-5 w-5 text-[#4285f4] mt-0.5 flex-shrink-0" />
+              <span className="text-base font-medium text-gray-900 pr-4">
+                {faq.question}
+              </span>
+            </div>
+            <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-[#4285f4] transition-colors flex-shrink-0" />
+          </button>
         ))}
-      </Accordion>
+      </div>
+      
+      <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <p className="text-sm text-center text-blue-700">
+          💡 <strong>Tip:</strong> Haz click en cualquier pregunta para iniciar una conversación con nuestro asistente
+        </p>
+      </div>
     </div>
   );
 }

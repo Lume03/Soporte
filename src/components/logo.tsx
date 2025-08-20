@@ -1,9 +1,9 @@
-import { MessageSquareHeart } from "lucide-react";
+import { Bot } from 'lucide-react';
 
-export function Logo() {
-    return (
-        <div className="flex items-center justify-center bg-primary text-primary-foreground h-full w-full rounded-lg">
-            <MessageSquareHeart className="h-6 w-6" />
-        </div>
-    )
+export function Logo({ className = "w-10 h-10" }: { className?: string }) {
+  return (
+    <div className={`${className} bg-[#4285f4] rounded-lg flex items-center justify-center`}>
+      <Bot className="h-6 w-6 text-white" />
+    </div>
+  );
 }
