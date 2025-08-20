@@ -5,14 +5,22 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, Loader2 } from 'lucide-react';
 
-export function ChatInput({ onSubmit, isLoading }: { onSubmit: (formData: FormData) => Promise<void>, isLoading: boolean }) {
+export function ChatInput({ 
+  onSubmit, 
+  isLoading,
+  isDisabled = false 
+}: { 
+  onSubmit: (formData: FormData) => Promise<void>, 
+  isLoading: boolean,
+  isDisabled?: boolean 
+}) {
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [hasText, setHasText] = useState(false);
   
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (isLoading || !inputRef.current?.value.trim()) return;
+    if (isLoading || !inputRef.current?.value.trim() || isDisabled) return;
     const formData = new FormData(event.currentTarget);
     await onSubmit(formData);
     formRef.current?.reset();
@@ -21,7 +29,7 @@ export function ChatInput({ onSubmit, isLoading }: { onSubmit: (formData: FormDa
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
+    if (event.key === 'Enter' && !event.shiftKey && !isDisabled) {
       event.preventDefault();
       formRef.current?.requestSubmit();
     }
@@ -32,20 +40,20 @@ export function ChatInput({ onSubmit, isLoading }: { onSubmit: (formData: FormDa
   };
 
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && !isDisabled) {
       inputRef.current?.focus();
     }
-  }, [isLoading]);
+  }, [isLoading, isDisabled]);
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="relative flex items-center gap-2 max-w-3xl mx-auto">
       <Textarea
         ref={inputRef}
         name="message"
-        placeholder="Escribe tu pregunta..."
-        className="flex-1 pr-20 resize-none bg-white"
+        placeholder={isDisabled ? "El campo de texto está deshabilitado" : "Escribe tu pregunta..."}
+        className={`flex-1 pr-20 resize-none bg-white ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         autoComplete="off"
-        disabled={isLoading}
+        disabled={isLoading || isDisabled}
         onKeyDown={handleKeyDown}
         onChange={handleChange}
         rows={1}
@@ -54,7 +62,7 @@ export function ChatInput({ onSubmit, isLoading }: { onSubmit: (formData: FormDa
         <Button 
           type="submit" 
           size="icon" 
-          disabled={isLoading || !hasText}
+          disabled={isLoading || !hasText || isDisabled}
           className="transition-all"
         >
           {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}

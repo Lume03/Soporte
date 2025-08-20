@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Message, Ticket } from '@/lib/types';
 import { ChatArea } from '@/components/chat/chat-area';
 import { ChatInput } from '@/components/chat/chat-input';
@@ -10,6 +10,7 @@ import { submitMessage as handleMessageSubmit } from '@/lib/actions';
 export default function ChatPage({ addTicket }: { addTicket: (ticket: Omit<Ticket, 'id' | 'date' | 'status'>) => void; }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isChatLocked, setIsChatLocked] = useState(false);
 
   const submitMessage = async (formData: FormData) => {
     const content = formData.get('message') as string;
@@ -35,35 +36,51 @@ export default function ChatPage({ addTicket }: { addTicket: (ticket: Omit<Ticke
         subject: response.subject,
         body: response.body,
         // NO mostrar feedback si es solo un saludo o si es escalación a soporte
-        showFeedback: response.answered === true && !isJustGreeting
+        showFeedback: response.answered === true && !isJustGreeting,
+        // Mostrar botón de contactar soporte si no pudo responder
+        showContactSupport: response.answered === false
       };
+      
       setMessages(prev => [...prev, assistantMessage]);
+      
+      // Si el bot no pudo responder (answered === false), bloquear el chat automáticamente
+      if (response.answered === false) {
+        setTimeout(() => {
+          setIsChatLocked(true);
+        }, 500);
+      }
+      
     } catch (error) {
       const errorMessage: Message = { 
         id: crypto.randomUUID(), 
         role: 'assistant', 
         content: "Lo siento, ha ocurrido un error. Por favor, intenta de nuevo.", 
-        answered: false 
+        answered: false,
+        showContactSupport: true
       };
       setMessages(prev => [...prev, errorMessage]);
+      // También bloquear en caso de error
+      setTimeout(() => {
+        setIsChatLocked(true);
+      }, 500);
     } finally {
       setIsLoading(false);
     }
   };
   
   const handleFaqClick = async (question: string, answer: string) => {
-    // El usuario "escribe" la pregunta con un saludo
+    // El usuario escribe la pregunta (sin el "Hola!")
     const userMessage: Message = { 
       id: crypto.randomUUID(), 
       role: 'user', 
-      content: `¡Hola! ${question}`
+      content: question
     };
     
-    // El bot responde con saludo y la respuesta
+    // El bot responde con la respuesta directa
     const assistantMessage: Message = { 
       id: crypto.randomUUID(), 
       role: 'assistant', 
-      content: `¡Hola! ${answer}`,
+      content: answer,
       answered: true,
       showFeedback: true // Mostrar botones de feedback porque es una respuesta FAQ
     };
@@ -73,25 +90,40 @@ export default function ChatPage({ addTicket }: { addTicket: (ticket: Omit<Ticke
   };
   
   const handleFeedback = (messageId: string, isPositive: boolean) => {
-    if (isPositive) {
-      // Feedback positivo
-      const thankYouMessage: Message = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: '¡Excelente! Me alegra haberte ayudado. 😊\n\nSi tienes alguna otra consulta, abre un nuevo chat en el botón de "+ Nueva Solicitud".',
-        answered: true
-      };
-      setMessages(prev => [...prev, thankYouMessage]);
-    } else {
-      // Feedback negativo - ofrecer más ayuda
-      const followUpMessage: Message = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: 'Entendido. Lamento que el problema continúe. Para poder ayudarte mejor, por favor describe con más detalle cuál es el problema específico que estás teniendo, y trataré de darte una solución más precisa.',
-        answered: true
-      };
-      setMessages(prev => [...prev, followUpMessage]);
-    }
+    // Primero, mostrar el mensaje del usuario simulando que escribió su respuesta
+    const userFeedbackMessage: Message = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: isPositive ? 'Sí, solucionado' : 'No, quisiera hablar con soporte.'
+    };
+    
+    setMessages(prev => [...prev, userFeedbackMessage]);
+    
+    // Luego, mostrar la respuesta del bot
+    setTimeout(() => {
+      if (isPositive) {
+        // Feedback positivo - mensaje final y bloquear chat
+        const thankYouMessage: Message = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: '¡Perfecto! Me alegra haber sido de ayuda.\n\nEsta consulta ha sido marcada como resuelta. Si necesitas asistencia con otro tema, no dudes en seleccionar el botón de una nueva solicitud. ¡Que tengas un excelente día!',
+          answered: true
+        };
+        setMessages(prev => [...prev, thankYouMessage]);
+        setIsChatLocked(true); // Bloquear el chat
+      } else {
+        // Feedback negativo - ofrecer contacto con soporte y bloquear chat
+        const supportMessage: Message = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: 'Comprendo. Lamento que tu problema aún no esté resuelto. Para darte la atención personalizada que necesitas, haz click en el siguiente botón para continuar.',
+          answered: false,
+          showContactSupport: true
+        };
+        setMessages(prev => [...prev, supportMessage]);
+        setIsChatLocked(true); // Bloquear el chat
+      }
+    }, 500); // Pequeño delay para simular escritura
     
     // Marcar el mensaje original como que ya recibió feedback
     setMessages(prev => prev.map(msg => 
@@ -110,9 +142,21 @@ export default function ChatPage({ addTicket }: { addTicket: (ticket: Omit<Ticke
                 <ChatArea messages={messages} addTicket={addTicket} onFeedback={handleFeedback} />
             )}
         </div>
-        <div className="p-4 md:p-6 border-t bg-white">
-            <ChatInput onSubmit={submitMessage} isLoading={isLoading} />
+        <div className="p-4 md:p-6 border-t bg-white relative">
+            <ChatInput 
+              onSubmit={submitMessage} 
+              isLoading={isLoading} 
+              isDisabled={isChatLocked}
+            />
+            {isChatLocked && (
+              <div className="absolute inset-0 bg-white/50 flex items-center justify-center">
+                <span className="text-sm text-gray-500 bg-white px-4 py-2 rounded-lg border shadow-sm">
+                  Esta conversación ha finalizado
+                </span>
+              </div>
+            )}
         </div>
     </main>
   );
 }
+

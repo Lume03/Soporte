@@ -3,7 +3,7 @@
 import type { Message, Ticket } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { User, Bot, Mail, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { User, Bot, Mail, ThumbsUp, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export function ChatMessage({ 
@@ -44,7 +44,6 @@ export function ChatMessage({
         {/* Botones de Feedback - Solo si showFeedback es true */}
         {!isUser && message.showFeedback && onFeedback && !message.feedbackReceived && (
           <div className="mt-3 pt-3 border-t border-gray-100">
-            <p className="text-sm text-gray-600 mb-3">¿Esta información resolvió tu duda?</p>
             <div className="flex gap-2">
               <Button
                 onClick={() => onFeedback(message.id, true)}
@@ -59,21 +58,24 @@ export function ChatMessage({
                 onClick={() => onFeedback(message.id, false)}
                 variant="outline"
                 size="sm"
-                className="flex-1 hover:bg-red-50 hover:text-red-700 hover:border-red-300"
+                className="flex-1 hover:bg-orange-50 hover:text-orange-700 hover:border-orange-300"
               >
-                <ThumbsDown className="mr-1.5 h-4 w-4" />
-                No, aún tengo problemas
+                <HelpCircle className="mr-1.5 h-4 w-4" />
+                No, ¿Quisieras hablar con soporte?
               </Button>
             </div>
           </div>
         )}
         
-        {/* Botón de contactar soporte - Solo si answered es false */}
-        {!isUser && message.answered === false && (
-          <div className="mt-3 pt-3 border-t border-gray-100">
-            <Button asChild variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs text-muted-foreground hover:text-foreground">
+        {/* Botón de contactar soporte - Cuando el bot no puede responder o después del feedback negativo */}
+        {!isUser && message.showContactSupport && (
+          <div className="mt-3">
+            <Button 
+              asChild 
+              className="w-full bg-[#4285f4] hover:bg-[#3367d6] text-white"
+            >
               <a href={mailtoHref}>
-                <Mail className="mr-1.5 h-3 w-3" />
+                <Mail className="mr-2 h-4 w-4" />
                 Contactar a Soporte
               </a>
             </Button>
@@ -90,3 +92,4 @@ export function ChatMessage({
     </div>
   );
 }
+
