@@ -1,69 +1,112 @@
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Logo } from '@/components/logo';
+"use client";
 
-const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg role="img" viewBox="0 0 24 24" {...props}>
-    <path
-      fill="currentColor"
-      d="M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.02 1.02-2.62 1.98-4.66 1.98-3.55 0-6.43-2.91-6.43-6.4s2.88-6.4 6.43-6.4c2.03 0 3.36.83 4.13 1.55l2.64-2.58C18.01 1.83 15.54 0 12.48 0 5.88 0 0 5.88 0 12.48s5.88 12.48 12.48 12.48c7.02 0 12.24-4.82 12.24-12.72 0-.8-.08-1.56-.22-2.32H12.48z"
-    ></path>
-  </svg>
-);
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
+import { Bot } from 'lucide-react';
 
-const MicrosoftIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg role="img" viewBox="0 0 23 23" {...props}>
-        <path fill="#f25022" d="M1 1h10.5v10.5H1z"/>
-        <path fill="#7fba00" d="M12.5 1h10.5v10.5H12.5z"/>
-        <path fill="#00a4ef" d="M1 12.5h10.5V23H1z"/>
-        <path fill="#ffb900" d="M12.5 12.5h10.5V23H12.5z"/>
-    </svg>
-);
+// Credenciales fijas para demo
+const DEMO_CREDENTIALS = {
+  email: "pepe.gonzalez@empresa.com",
+  password: "soporte123"
+};
 
 export function LoginForm() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+   
+    // Verificar credenciales demo
+    if (email === DEMO_CREDENTIALS.email && password === DEMO_CREDENTIALS.password) {
+      // Login exitoso
+      setTimeout(() => {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('user', JSON.stringify({ 
+            email: DEMO_CREDENTIALS.email,
+            name: "Pepe González" 
+          }));
+        }
+        router.push('/chat');
+      }, 1000);
+    } else {
+      // Credenciales incorrectas
+      setTimeout(() => {
+        toast({
+          title: "Error de autenticación",
+          description: "El correo o contraseña son incorrectos.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+      }, 1000);
+    }
+  };
+  
   return (
-    <Card className="w-full max-w-sm shadow-xl">
-      <CardHeader className="text-center">
-        <div className="mx-auto mb-4">
-            <Logo />
+    <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-10">
+      {/* Logo */}
+      <div className="flex justify-center mb-6">
+        <div className="w-16 h-16 bg-[#4285f4] rounded-lg flex items-center justify-center">
+          <Bot className="h-9 w-9 text-white" />
         </div>
-        <CardTitle className="text-2xl font-bold">Welcome to Soporte</CardTitle>
-        <CardDescription>Your AI-powered support assistant.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          <Button variant="outline" className="w-full">
-            <GoogleIcon className="mr-2 h-5 w-5" />
-            Sign in with Google
-          </Button>
-          <Button variant="outline" className="w-full">
-            <MicrosoftIcon className="mr-2 h-5 w-5" />
-            Sign in with Microsoft
-          </Button>
+      </div>
+      
+      {/* Título */}
+      <h1 className="text-2xl font-bold text-center text-gray-900 mb-2">
+        Bienvenido a Soporte
+      </h1>
+      
+      {/* Subtítulo */}
+      <p className="text-sm text-center text-gray-500 mb-8">
+        Tu asistente de soporte impulsado por IA.
+      </p>
+      
+      {/* Formulario */}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <input
+            type="email"
+            placeholder="correo electrónico"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            disabled={isLoading}
+            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#4285f4] focus:bg-white transition-all text-sm"
+          />
         </div>
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">
-              Or with email
-            </span>
-          </div>
+        
+        <div>
+          <input
+            type="password"
+            placeholder="contraseña"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            disabled={isLoading}
+            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#4285f4] focus:bg-white transition-all text-sm"
+          />
         </div>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email Address</Label>
-            <Input id="email" type="email" placeholder="you@example.com" required defaultValue="personal_1@corp.com" />
-          </div>
-          <Link href="/chat" className="w-full" passHref>
-            <Button className="w-full">Send Magic Link</Button>
-          </Link>
-        </div>
-      </CardContent>
-    </Card>
+        
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full py-3 bg-[#4285f4] hover:bg-[#3367d6] text-white font-medium rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed mt-6"
+        >
+          {isLoading ? 'Iniciando...' : 'Iniciar sesión'}
+        </button>
+      </form>
+      
+      {/* Info de credenciales demo (opcional - quitar en producción) */}
+      <div className="mt-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
+        <p className="text-xs text-center text-blue-700">
+          <strong>Demo:</strong> pepe.gonzalez@empresa.com / soporte123
+        </p>
+      </div>
+    </div>
   );
 }

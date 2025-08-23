@@ -5,6 +5,9 @@ export type Message = {
   answered?: boolean;
   subject?: string;
   body?: string;
+  showFeedback?: boolean;
+  feedbackReceived?: boolean;
+  showContactSupport?: boolean;
 };
 
 export type TicketStatus = 'En Proceso' | 'Finalizado';
@@ -20,3 +23,4 @@ export type FaqItem = {
   question: string;
   answer: string;
 };
+

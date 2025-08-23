@@ -4,20 +4,38 @@ import { answerFAQ } from '@/ai/flows/answer-faq';
 import { faqDocument } from './data';
 import type { AnswerFAQOutput } from '@/ai/flows/answer-faq';
 
-export async function submitMessage(message: string): Promise<AnswerFAQOutput> {
+export interface ExtendedAnswerFAQOutput extends AnswerFAQOutput {
+  showFeedback?: boolean;
+  showContactSupport?: boolean;
+}
+
+export async function submitMessage(message: string): Promise<ExtendedAnswerFAQOutput> {
   try {
     const result = await answerFAQ({
       question: message,
       faq: faqDocument,
     });
-    return result;
+    
+    // Detectar si es solo un saludo
+    const isJustGreeting = result.answer.toLowerCase().includes('¡hola!') && 
+                          result.answer.toLowerCase().includes('¿en qué puedo ayudarte');
+    
+    // Si no pudo responder (answered = false), mostrar botón de contactar soporte
+    // Si pudo responder y no es saludo, mostrar feedback
+    return {
+      ...result,
+      showFeedback: result.answered === true && !isJustGreeting,
+      showContactSupport: result.answered === false
+    };
   } catch (error) {
     console.error("Error calling AI flow:", error);
     return { 
       answered: false,
-      answer: "Lo siento, estoy teniendo problemas para conectarme con mis servicios de IA. Por favor, intenta de nuevo más tarde o contacta a soporte.",
+      answer: "Lo siento, estoy teniendo problemas para conectarme con mis servicios de IA. Por favor, contacta a soporte para obtener ayuda.",
       subject: "Error de IA - Consulta de Usuario",
-      body: `El sistema de IA no pudo procesar la siguiente consulta:\n\n"${message}"\n\nPor favor, describe tu problema a continuación:`
+      body: `El sistema de IA no pudo procesar la siguiente consulta:\n\n"${message}"\n\nPor favor, describe tu problema a continuación:`,
+      showFeedback: false,
+      showContactSupport: true
     };
   }
 }
