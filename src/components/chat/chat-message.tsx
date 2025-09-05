@@ -1,23 +1,12 @@
 "use client";
 
-import type { Message, Ticket } from '@/lib/types';
+import type { Message } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { User, Bot, Mail, ThumbsUp, HelpCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { User, Bot } from 'lucide-react';
 
-export function ChatMessage({ 
-  message, 
-  addTicket,
-  onFeedback 
-}: { 
-  message: Message, 
-  addTicket: (ticket: Omit<Ticket, 'id' | 'date' | 'status'>) => void;
-  onFeedback?: (messageId: string, isPositive: boolean) => void;
-}) {
+export function ChatMessage({ message }: { message: Message }) {
   const isUser = message.role === 'user';
-
-  const mailtoHref = `mailto:luquealonso151@gmail.com?subject=${encodeURIComponent(message.subject || 'Consulta de Soporte')}&body=${encodeURIComponent(message.body || 'Hola, necesito ayuda con lo siguiente:\n\n')}`;
 
   return (
     <div className={cn(
@@ -25,67 +14,26 @@ export function ChatMessage({
       isUser ? 'justify-end' : 'justify-start'
     )}>
       {!isUser && (
-        <Avatar className="h-8 w-8 border border-gray-200 bg-white">
-          <AvatarFallback className="bg-[#4285f4] text-white">
+        <Avatar className="h-9 w-9 border-2 border-white shadow-sm">
+          <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-500 text-white">
             <Bot className="h-5 w-5" />
           </AvatarFallback>
         </Avatar>
       )}
       <div
         className={cn(
-          'max-w-[75%] rounded-lg p-3 shadow-sm',
+          'max-w-[75%] rounded-2xl p-4 shadow-md',
           isUser
-            ? 'bg-[#4285f4] text-white'
-            : 'bg-white border border-gray-200'
+            ? 'bg-gradient-to-br from-blue-700 to-blue-500 text-white rounded-br-lg'
+            : 'bg-gradient-to-br from-white to-gray-100 text-gray-800 rounded-bl-lg border border-gray-100'
         )}
       >
-        <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
-        
-        {/* Botones de Feedback - Solo si showFeedback es true */}
-        {!isUser && message.showFeedback && onFeedback && !message.feedbackReceived && (
-          <div className="mt-3 pt-3 border-t border-gray-100">
-            <div className="flex gap-2">
-              <Button
-                onClick={() => onFeedback(message.id, true)}
-                variant="outline"
-                size="sm"
-                className="flex-1 hover:bg-green-50 hover:text-green-700 hover:border-green-300"
-              >
-                <ThumbsUp className="mr-1.5 h-4 w-4" />
-                Sí, solucionado
-              </Button>
-              <Button
-                onClick={() => onFeedback(message.id, false)}
-                variant="outline"
-                size="sm"
-                className="flex-1 hover:bg-orange-50 hover:text-orange-700 hover:border-orange-300"
-              >
-                <HelpCircle className="mr-1.5 h-4 w-4" />
-                No, ¿Quisieras hablar con soporte?
-              </Button>
-            </div>
-          </div>
-        )}
-        
-        {/* Botón de contactar soporte - Cuando el bot no puede responder o después del feedback negativo */}
-        {!isUser && message.showContactSupport && (
-          <div className="mt-3">
-            <Button 
-              asChild 
-              className="w-full bg-[#4285f4] hover:bg-[#3367d6] text-white"
-            >
-              <a href={mailtoHref}>
-                <Mail className="mr-2 h-4 w-4" />
-                Contactar a Soporte
-              </a>
-            </Button>
-          </div>
-        )}
+        <p className="whitespace-pre-wrap leading-relaxed text-sm">{message.content}</p>
       </div>
       {isUser && (
-        <Avatar className="h-8 w-8 border border-gray-200 bg-white">
-          <AvatarFallback className="bg-gray-100">
-            <User className="h-5 w-5" />
+        <Avatar className="h-9 w-9 border-2 border-white shadow-sm">
+          <AvatarFallback className="bg-gray-200">
+            <User className="h-5 w-5 text-gray-600" />
           </AvatarFallback>
         </Avatar>
       )}

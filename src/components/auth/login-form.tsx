@@ -3,13 +3,19 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { Bot } from 'lucide-react';
 
-// Credenciales fijas para demo
-const DEMO_CREDENTIALS = {
-  email: "pepe.gonzalez@empresa.com",
+// Credenciales para el usuario final (cliente)
+const USER_CREDENTIALS = {
+  email: "ana.gonzales@example.com",
   password: "soporte123"
 };
+
+// Credenciales para el analista de soporte
+const ANALYST_CREDENTIALS = {
+  email: "luis.rodriguez@example.com", // Corregido para que coincida con la imagen
+  password: "analyst123" // Contraseña sugerida
+};
+
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
@@ -17,53 +23,70 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-   
-    // Verificar credenciales demo
-    if (email === DEMO_CREDENTIALS.email && password === DEMO_CREDENTIALS.password) {
-      // Login exitoso
-      setTimeout(() => {
+
+    // Simular una pequeña demora de red
+    setTimeout(() => {
+      // Verificar si es el analista
+      if (email === ANALYST_CREDENTIALS.email && password === ANALYST_CREDENTIALS.password) {
         if (typeof window !== 'undefined') {
-          localStorage.setItem('user', JSON.stringify({ 
-            email: DEMO_CREDENTIALS.email,
-            name: "Pepe González" 
+          localStorage.clear();
+          localStorage.setItem('user', JSON.stringify({
+            email: ANALYST_CREDENTIALS.email,
+            name: "Luis Rodríguez",
+            role: "analyst" // Añadimos un rol para diferenciarlo
           }));
         }
-        router.push('/chat');
-      }, 1000);
-    } else {
+        router.push('/analyst/dashboard'); // Redirigir al dashboard del analista
+      }
+      // Verificar si es el usuario final
+      else if (email === USER_CREDENTIALS.email && password === USER_CREDENTIALS.password) {
+        if (typeof window !== 'undefined') {
+          localStorage.clear();
+          localStorage.setItem('user', JSON.stringify({
+            email: USER_CREDENTIALS.email,
+            name: "Ana González",
+            role: "user"
+          }));
+        }
+        router.push('/chat'); // Redirigir a la página de chat
+      }
       // Credenciales incorrectas
-      setTimeout(() => {
+      else {
         toast({
           title: "Error de autenticación",
           description: "El correo o contraseña son incorrectos.",
           variant: "destructive",
         });
         setIsLoading(false);
-      }, 1000);
-    }
+      }
+    }, 1000);
   };
-  
+
   return (
     <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-10">
-      {/* Logo */}
+      {/* Logo de Analytics */}
       <div className="flex justify-center mb-6">
-        <div className="w-16 h-16 bg-[#4285f4] rounded-lg flex items-center justify-center">
-          <Bot className="h-9 w-9 text-white" />
+        <div className="w-16 h-16">
+          <img
+            src="https://i.ibb.co/S4CngF6F/new-analytics-logo.png"
+            alt="Analytics Logo"
+            className="w-full h-full object-contain"
+          />
         </div>
       </div>
       
-      {/* Título */}
+      {/* Título Analytics */}
       <h1 className="text-2xl font-bold text-center text-gray-900 mb-2">
-        Bienvenido a Soporte
+        analytics
       </h1>
       
-      {/* Subtítulo */}
+      {/* Slogan Analytics */}
       <p className="text-sm text-center text-gray-500 mb-8">
-        Tu asistente de soporte impulsado por IA.
+        Let the data drive the strategy
       </p>
       
       {/* Formulario */}
@@ -101,12 +124,12 @@ export function LoginForm() {
         </button>
       </form>
       
-      {/* Info de credenciales demo (opcional - quitar en producción) */}
-      <div className="mt-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
-        <p className="text-xs text-center text-blue-700">
-          <strong>Demo:</strong> pepe.gonzalez@empresa.com / soporte123
-        </p>
+      {/* Info de credenciales demo */}
+      <div className="mt-6 p-3 bg-blue-50 rounded-lg border border-blue-200 text-xs text-center text-blue-700">
+        <p><strong>Usuario:</strong> ana.gonzales@example.com / soporte123</p>
+        <p className="mt-1"><strong>Analista:</strong> luis.rodriguez@example.com / analyst123</p>
       </div>
     </div>
   );
 }
+

@@ -1,162 +1,239 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import type { Message, Ticket } from '@/lib/types';
+import type { Message } from '@/lib/types';
 import { ChatArea } from '@/components/chat/chat-area';
 import { ChatInput } from '@/components/chat/chat-input';
-import { FaqSection } from '@/components/chat/faq-section';
+import { Bot, Send, Ticket as TicketIcon, User, Building2, UserCog, Briefcase, CalendarDays, CheckCircle, ClipboardList, FileText, CircleDot, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { submitMessage as handleMessageSubmit } from '@/lib/actions';
 
-export default function ChatPage({ addTicket }: { addTicket: (ticket: Omit<Ticket, 'id' | 'date' | 'status'>) => void; }) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isChatLocked, setIsChatLocked] = useState(false);
+// --- TIPO PARA LOS DETALLES DEL TICKET (AQUÍ ESTÁ LA CORRECCIÓN) ---
+type TicketDetailItem = {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  color?: string; // Se define 'color' como opcional con '?'
+};
 
-  const submitMessage = async (formData: FormData) => {
-    const content = formData.get('message') as string;
-    if (!content.trim()) return;
-
-    const userMessage: Message = { id: crypto.randomUUID(), role: 'user', content };
-    setMessages(prev => [...prev, userMessage]);
-    setIsLoading(true);
-
-    try {
-      const response = await handleMessageSubmit(content);
-      
-      // Detectar si es solo un saludo basado en el contenido
-      const isJustGreeting = response.answer.toLowerCase().includes('¡hola!') && 
-                            response.answer.toLowerCase().includes('¿en qué puedo ayudarte') &&
-                            response.answered === true;
-      
-      const assistantMessage: Message = { 
-        id: crypto.randomUUID(), 
-        role: 'assistant', 
-        content: response.answer,
-        answered: response.answered,
-        subject: response.subject,
-        body: response.body,
-        // NO mostrar feedback si es solo un saludo o si es escalación a soporte
-        showFeedback: response.answered === true && !isJustGreeting,
-        // Mostrar botón de contactar soporte si no pudo responder
-        showContactSupport: response.answered === false
-      };
-      
-      setMessages(prev => [...prev, assistantMessage]);
-      
-      // Si el bot no pudo responder (answered === false), bloquear el chat automáticamente
-      if (response.answered === false) {
-        setTimeout(() => {
-          setIsChatLocked(true);
-        }, 500);
-      }
-      
-    } catch (error) {
-      const errorMessage: Message = { 
-        id: crypto.randomUUID(), 
-        role: 'assistant', 
-        content: "Lo siento, ha ocurrido un error. Por favor, intenta de nuevo.", 
-        answered: false,
-        showContactSupport: true
-      };
-      setMessages(prev => [...prev, errorMessage]);
-      // También bloquear en caso de error
-      setTimeout(() => {
-        setIsChatLocked(true);
-      }, 500);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const handleFaqClick = async (question: string, answer: string) => {
-    // El usuario escribe la pregunta (sin el "Hola!")
-    const userMessage: Message = { 
-      id: crypto.randomUUID(), 
-      role: 'user', 
-      content: question
-    };
-    
-    // El bot responde con la respuesta directa
-    const assistantMessage: Message = { 
-      id: crypto.randomUUID(), 
-      role: 'assistant', 
-      content: answer,
-      answered: true,
-      showFeedback: true // Mostrar botones de feedback porque es una respuesta FAQ
-    };
-    
-    // Actualizar los mensajes para iniciar el chat
-    setMessages([userMessage, assistantMessage]);
-  };
-  
-  const handleFeedback = (messageId: string, isPositive: boolean) => {
-    // Primero, mostrar el mensaje del usuario simulando que escribió su respuesta
-    const userFeedbackMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: isPositive ? 'Sí, solucionado' : 'No, quisiera hablar con soporte.'
-    };
-    
-    setMessages(prev => [...prev, userFeedbackMessage]);
-    
-    // Luego, mostrar la respuesta del bot
-    setTimeout(() => {
-      if (isPositive) {
-        // Feedback positivo - mensaje final y bloquear chat
-        const thankYouMessage: Message = {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: '¡Perfecto! Me alegra haber sido de ayuda.\n\nEsta consulta ha sido marcada como resuelta. Si necesitas asistencia con otro tema, no dudes en seleccionar el botón de una nueva solicitud. ¡Que tengas un excelente día!',
-          answered: true
-        };
-        setMessages(prev => [...prev, thankYouMessage]);
-        setIsChatLocked(true); // Bloquear el chat
-      } else {
-        // Feedback negativo - ofrecer contacto con soporte y bloquear chat
-        const supportMessage: Message = {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: 'Comprendo. Lamento que tu problema aún no esté resuelto. Para darte la atención personalizada que necesitas, haz click en el siguiente botón para continuar.',
-          answered: false,
-          showContactSupport: true
-        };
-        setMessages(prev => [...prev, supportMessage]);
-        setIsChatLocked(true); // Bloquear el chat
-      }
-    }, 500); // Pequeño delay para simular escritura
-    
-    // Marcar el mensaje original como que ya recibió feedback
-    setMessages(prev => prev.map(msg => 
-      msg.id === messageId 
-        ? { ...msg, feedbackReceived: true, showFeedback: false } 
-        : msg
-    ));
-  };
+// --- Componente para la Tarjeta de Ticket Rediseñada ---
+function GeneratedTicketCard({ ticket }: { ticket: any }) {
+  const details: TicketDetailItem[] = [ // Se aplica el nuevo tipo al array
+    { icon: ClipboardList, label: 'Tipo', value: ticket.type },
+    { icon: User, label: 'Usuario', value: ticket.user },
+    { icon: Building2, label: 'Empresa', value: ticket.company },
+    { icon: Briefcase, label: 'Servicio', value: ticket.service },
+    { icon: UserCog, label: 'Analista', value: ticket.analyst },
+    { icon: CircleDot, label: 'Estado', value: ticket.status },
+    { icon: CalendarDays, label: 'Fecha', value: ticket.date },
+  ];
 
   return (
-    <main className="flex-1 flex flex-col h-full max-h-[calc(100vh-4rem)] bg-[#F1F4F8]">
-        <div className="flex-1 overflow-y-auto p-4 md:p-6">
-            {messages.length === 0 ? (
-                <FaqSection onFaqClick={handleFaqClick} />
-            ) : (
-                <ChatArea messages={messages} addTicket={addTicket} onFeedback={handleFeedback} />
-            )}
+    <div className="bg-white rounded-xl p-8 shadow-lg border border-gray-100 max-w-2xl mx-auto my-8 animate-in fade-in-0 zoom-in-95 duration-500">
+      <div className="text-center mb-6">
+        <div className="inline-block bg-green-100 p-3 rounded-full mb-4">
+          <CheckCircle className="h-8 w-8 text-green-600" />
         </div>
-        <div className="p-4 md:p-6 border-t bg-white relative">
-            <ChatInput 
-              onSubmit={submitMessage} 
-              isLoading={isLoading} 
-              isDisabled={isChatLocked}
-            />
-            {isChatLocked && (
-              <div className="absolute inset-0 bg-white/50 flex items-center justify-center">
-                <span className="text-sm text-gray-500 bg-white px-4 py-2 rounded-lg border shadow-sm">
-                  Esta conversación ha finalizado
-                </span>
+        <h2 className="text-xl font-bold text-gray-900">Ticket de Soporte Generado</h2>
+        <p className="text-gray-500 mt-1">Nuestro equipo lo revisará a la brevedad.</p>
+      </div>
+      
+      <div className="border-t border-gray-200 pt-6 space-y-4">
+        <div className="flex items-start gap-3">
+          <TicketIcon className="h-5 w-5 text-gray-400 mt-1 flex-shrink-0" />
+          <div>
+            <p className="text-xs text-gray-500">Ticket ID</p>
+            <p className="text-sm font-semibold text-purple-600">{ticket.id}</p>
+          </div>
+        </div>
+        <div className="flex items-start gap-3">
+          <FileText className="h-5 w-5 text-gray-400 mt-1 flex-shrink-0" />
+          <div>
+            <p className="text-xs text-gray-500">Asunto</p>
+            <p className="text-sm font-medium text-gray-800">{ticket.subject}</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 pt-4 border-t mt-4">
+          {details.map(item => (
+            <div key={item.label} className="flex items-start gap-3">
+              <item.icon className="h-5 w-5 text-gray-400 mt-1 flex-shrink-0" />
+              <div>
+                <p className="text-xs text-gray-500">{item.label}</p>
+                <p className={`text-sm font-medium ${item.color || 'text-gray-800'}`}>{item.value}</p>
               </div>
-            )}
+            </div>
+          ))}
         </div>
-    </main>
+      </div>
+    </div>
   );
 }
 
+
+// --- Componente para la Página de Inicio (Tu diseño preferido con mejoras) ---
+function HomePage({ onSubmitMessage, isLoading }: { onSubmitMessage: (message: string) => void; isLoading: boolean; }) {
+  const [inputValue, setInputValue] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (inputValue.trim()) {
+      onSubmitMessage(inputValue.trim());
+      setInputValue('');
+    }
+  };
+
+  return (
+    <div className="flex-1 flex items-center justify-center p-6 min-h-[calc(100vh-88px)]">
+      <div className="w-full max-w-4xl bg-white rounded-2xl p-12 text-center mx-auto shadow-xl">
+        <div className="w-20 h-20 mx-auto mb-8 relative">
+          <img
+            src="https://i.ibb.co/S4CngF6F/new-analytics-logo.png"
+            alt="Analytics Logo"
+            className="w-full h-full object-contain"
+          />
+        </div>
+        
+        <h1 className="text-3xl mb-6 leading-relaxed">
+          <span className="bg-gradient-to-r from-[#3498DB] via-[#2980B9] to-[#1ABC9C] bg-clip-text text-transparent font-bold">¡Hola! Soy el Asistente Virtual de Analytics.</span>
+        </h1>
+        
+        <p className="text-gray-600 mb-12 text-lg leading-relaxed max-w-2xl mx-auto">
+          Estoy aquí para ayudarte a resolver una incidencia o a explorar el servicio perfecto para tu próximo proyecto. ¿Cómo te puedo ayudar hoy?
+        </p>
+        
+        <form onSubmit={handleSubmit} className="relative max-w-2xl mx-auto">
+          <svg className="h-5 w-5 text-gray-400 absolute left-6 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-1l-4 4z" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Escribe tu pregunta..."
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            disabled={isLoading}
+            className="w-full pl-14 pr-20 py-5 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-base shadow-sm"
+          />
+          <Button
+            type="submit"
+            disabled={isLoading || !inputValue.trim()}
+            size="icon"
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-lg transition-transform active:scale-95"
+          >
+            {isLoading ? (
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            ) : (
+              <Send className="h-6 w-6" />
+            )}
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// --- Componente Principal de la Página de Chat ---
+export default function ChatPage() {
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [showHomePage, setShowHomePage] = useState(true);
+    const [generatedTicket, setGeneratedTicket] = useState<any>(null);
+    const [showNewChatButton, setShowNewChatButton] = useState(false);
+    const [isChatLocked, setIsChatLocked] = useState(false);
+  
+    const resetToHome = () => {
+      setShowHomePage(true);
+      setMessages([]);
+      setGeneratedTicket(null);
+      setShowNewChatButton(false);
+      setIsChatLocked(false);
+      setIsLoading(false);
+    };
+  
+    useEffect(() => {
+      if (typeof window !== 'undefined') {
+        (window as any).resetChatToHome = resetToHome;
+      }
+    }, []);
+  
+    const submitMessage = async (messageContent: string) => {
+        if (!messageContent.trim() || isLoading) return;
+        setShowHomePage(false);
+        const userMessage: Message = { id: crypto.randomUUID(), role: 'user', content: messageContent };
+        setMessages(prev => [...prev, userMessage]);
+        setIsLoading(true);
+    
+        try {
+          const response = await handleMessageSubmit(messageContent);
+          const assistantMessage: Message = { id: crypto.randomUUID(), role: 'assistant', content: response.answer };
+          setMessages(prev => [...prev, assistantMessage]);
+          if (response.answered === false) {
+            setTimeout(() => generateTicket(messageContent), 1000);
+          }
+        } catch (error) {
+          const errorMessage: Message = { id: crypto.randomUUID(), role: 'assistant', content: "Lo siento, ha ocurrido un error. Voy a generar un ticket para que nuestro equipo te ayude." };
+          setMessages(prev => [...prev, errorMessage]);
+          setTimeout(() => generateTicket(messageContent), 1000);
+        } finally {
+          setIsLoading(false);
+        }
+    };
+      
+    const generateTicket = (userQuery: string) => {
+        const ticket = {
+          id: `TCK-2025-${String(Math.floor(Math.random() * 90000) + 10000).padStart(5, '0')}`,
+          type: 'Incidencia',
+          user: 'Ana González',
+          company: 'Scotiabank',
+          analyst: 'Equipo de Data Science',
+          subject: userQuery,
+          service: 'Data Science',
+          status: 'Abierto',
+          date: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        };
+        setGeneratedTicket(ticket);
+        setShowNewChatButton(true);
+        setIsChatLocked(true);
+    };
+    
+    const handleFormSubmit = async (formData: FormData) => {
+        const content = formData.get('message') as string;
+        await submitMessage(content);
+    }
+  
+    if (showHomePage) {
+      return <HomePage onSubmitMessage={submitMessage} isLoading={isLoading} />;
+    }
+  
+    return (
+      <div className="flex flex-col h-[calc(100vh-88px)]">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6">
+            <ChatArea messages={messages} isLoading={isLoading} />
+            {generatedTicket && <GeneratedTicketCard ticket={generatedTicket} />}
+            {showNewChatButton && (
+              <div className="text-center my-8">
+                <div className="text-gray-600 text-sm mb-4 flex items-center justify-center gap-2 max-w-md mx-auto">
+                  <div className="h-px bg-gray-200 flex-1"></div>
+                  <span>¿Tienes otra solicitud?</span>
+                  <div className="h-px bg-gray-200 flex-1"></div>
+                </div>
+                <Button
+                  onClick={resetToHome}
+                  className="bg-gradient-to-r from-blue-600 to-green-500 hover:from-blue-700 hover:to-green-600 text-white px-8 py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all"
+                >
+                  Iniciar un Nuevo Chat
+                </Button>
+              </div>
+            )}
+        </div>
+        <div className="flex-shrink-0 p-4 md:p-6 border-t bg-white relative">
+          <div className="max-w-3xl mx-auto">
+            <ChatInput 
+              onSubmit={handleFormSubmit} 
+              isLoading={isLoading} 
+              isDisabled={isChatLocked}
+            />
+          </div>
+        </div>
+      </div>
+    );
+}

@@ -21,11 +21,19 @@ export function ChatInput({
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (isLoading || !inputRef.current?.value.trim() || isDisabled) return;
+
+    // Capturamos los datos del formulario ANTES de limpiarlo
     const formData = new FormData(event.currentTarget);
-    await onSubmit(formData);
+
+    // Limpiamos el campo de texto INMEDIATAMENTE
     formRef.current?.reset();
-    inputRef.current?.focus();
     setHasText(false);
+    
+    // Ahora, enviamos los datos al chatbot
+    await onSubmit(formData);
+    
+    // Una vez que el chatbot responde, volvemos a enfocar el input
+    inputRef.current?.focus();
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -51,7 +59,7 @@ export function ChatInput({
         ref={inputRef}
         name="message"
         placeholder={isDisabled ? "El campo de texto está deshabilitado" : "Escribe tu pregunta..."}
-        className={`flex-1 pr-20 resize-none bg-white ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        className="flex-1 pr-20 resize-none bg-white"
         autoComplete="off"
         disabled={isLoading || isDisabled}
         onKeyDown={handleKeyDown}
