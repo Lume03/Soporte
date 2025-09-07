@@ -6,17 +6,9 @@ import Link from 'next/link';
 import { AnalystHeader } from '@/components/analyst/analyst-header';
 import { TicketStatusBadge } from '@/components/analyst/ticket-status-badge';
 
-// --- TIPOS DE DATOS ---
+// --- (Los tipos y datos no cambian) ---
 type TicketStatus = 'Abierto' | 'En Atención' | 'Cerrado' | 'Rechazado';
-type Ticket = {
-  id: string;
-  subject: string;
-  user: string;
-  service: string;
-  status: TicketStatus;
-};
-
-// --- DATOS AMPLIADOS PARA LA PAGINACIÓN ---
+type Ticket = { id: string; subject: string; user: string; service: string; status: TicketStatus; };
 const allTickets: Ticket[] = [
     { id: 'TCK-2025-00913', subject: 'Dashboard de ventas sin datos actuales', user: 'Ana González', service: 'Data Science', status: 'Abierto' },
     { id: 'TCK-2025-00931', subject: 'Solicitud de un nuevo reporte en Big Data', user: 'Ricardo Mendoza', service: 'Big Data', status: 'En Atención' },
@@ -34,7 +26,6 @@ const allTickets: Ticket[] = [
     { id: 'TCK-2025-00925', subject: 'Visualización de datos geoespaciales', user: 'Alejandro Vega', service: 'Geo Solutions', status: 'Rechazado' },
     { id: 'TCK-2025-00926', subject: 'Ajuste de modelo predictivo', user: 'Valeria Mendoza', service: 'Data Science', status: 'Abierto' },
 ];
-
 const TICKETS_PER_PAGE = 10;
 
 export default function AnalystDashboardPage() {
@@ -108,27 +99,27 @@ export default function AnalystDashboardPage() {
           </div>
 
           <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100">
-            <table className="w-full text-sm text-left text-gray-600">
+            <table className="w-full text-sm text-left text-gray-600 table-fixed">
               <thead className="bg-gradient-to-r from-blue-50 to-indigo-50 text-xs text-blue-900/80 uppercase tracking-wider">
                 <tr>
-                  <th scope="col" className="px-6 py-4 font-semibold">Ticket ID</th>
-                  <th scope="col" className="px-6 py-4 font-semibold">Asunto</th>
-                  <th scope="col" className="px-6 py-4 font-semibold">Usuario</th>
-                  <th scope="col" className="px-6 py-4 font-semibold">Servicio</th>
-                  <th scope="col" className="px-6 py-4 font-semibold">Estado</th>
+                  <th scope="col" className="px-6 py-4 font-semibold w-[15%]">Ticket ID</th>
+                  <th scope="col" className="px-6 py-4 font-semibold w-[40%]">Asunto</th>
+                  <th scope="col" className="px-6 py-4 font-semibold w-[15%]">Usuario</th>
+                  <th scope="col" className="px-6 py-4 font-semibold w-[15%]">Servicio</th>
+                  <th scope="col" className="px-6 py-4 font-semibold w-[15%]">Estado</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {paginatedTickets.map((ticket) => (
                   <tr key={ticket.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-blue-600">
+                    <td className="px-6 py-4 font-medium text-blue-600 truncate">
                       <Link href={`/analyst/ticket/${ticket.id}`} className="hover:underline">
                         {ticket.id}
                       </Link>
                     </td>
-                    <td className="px-6 py-4 font-semibold text-gray-800">{ticket.subject}</td>
-                    <td className="px-6 py-4">{ticket.user}</td>
-                    <td className="px-6 py-4">{ticket.service}</td>
+                    <td className="px-6 py-4 font-semibold text-gray-800 truncate">{ticket.subject}</td>
+                    <td className="px-6 py-4 truncate">{ticket.user}</td>
+                    <td className="px-6 py-4 truncate">{ticket.service}</td>
                     <td className="px-6 py-4">
                       <TicketStatusBadge status={ticket.status} />
                     </td>
@@ -175,5 +166,7 @@ export default function AnalystDashboardPage() {
       </main>
     </div>
   );
-}
+} 
+
+
 

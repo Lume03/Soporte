@@ -1,14 +1,16 @@
+"use client";
+
+import { useState } from 'react';
 import { Bot, User, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { AnalystHeader } from '@/components/analyst/analyst-header';
 
-// --- TIPOS DE DATOS ---
+// --- (Los tipos, datos y el componente DetailCard ) ---
 type ChatMessage = {
   role: 'user' | 'assistant';
   content: string;
 };
 
-// --- DATOS (DEFINIDOS FUERA DEL COMPONENTE) ---
 const ticketDetails = {
   id: 'TCK-2025-00913',
   subject: 'Dashboard de proyecciones de riesgo no actualiza datos desde el 03/09',
@@ -31,7 +33,6 @@ const conversation: ChatMessage[] = [
     { role: 'assistant', content: 'Entendido. La falta de actualización de datos en un dashboard de riesgo es un asunto prioritario. No te preocupes, no necesitas hacer nada más. Voy a generar inmediatamente un ticket de soporte para que nuestro equipo de Data Science lo investigue a la brevedad.'},
 ];
 
-// --- COMPONENTE AUXILIAR (CORREGIDO Y COMPLETO) ---
 function DetailCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 transition-shadow hover:shadow-sm">
@@ -41,8 +42,11 @@ function DetailCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-// --- PÁGINA PRINCIPAL ---
+
+// --- PÁGINA PRINCIPAL CORREGIDA ---
 export default function TicketDetailPage({ params }: { params: { id: string } }) {
+  const [selectedStatus, setSelectedStatus] = useState(ticketDetails.status);
+
   return (
     <div className="min-h-screen bg-[#F7FAFC]">
       <AnalystHeader />
@@ -50,6 +54,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
           
           <div className="lg:col-span-4 bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col">
+            
             <div className="flex-grow">
               <Link href="/analyst/dashboard" className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 mb-6 transition-colors">
                 <ArrowLeft className="w-4 h-4" />
@@ -70,28 +75,47 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                 <DetailCard label="Fecha" value={ticketDetails.date} />
               </div>
 
-              <div> 
+              
+              <div className="space-y-4"> 
                 <h3 className="text-sm font-semibold text-gray-500 mb-3 border-b pb-2">Gestión del Ticket</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-2">ESTADO</label>
-                    <select
-                      id="status"
-                      name="status"
-                      defaultValue={ticketDetails.status}
-                      className="w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm"
-                    >
-                      <option>Abierto</option>
-                      <option>En atención</option>
-                      <option>Cerrado</option>
-                      <option>Rechazado</option>
-                    </select>
-                  </div>
+                
+                <div className="flex items-center justify-between gap-4">
+                  <label htmlFor="status" className="block text-sm font-medium text-gray-700 whitespace-nowrap">ESTADO</label>
+                  <select
+                    id="status"
+                    name="status"
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value)}
+                    className="w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm"
+                  >
+                    <option>Abierto</option>
+                    <option>En Atención</option>
+                    <option>Cerrado</option>
+                    <option>Rechazado</option>
+                  </select>
+                </div>
+                
+                <div className="min-h-[105px]">
+                  {selectedStatus === 'Cerrado' && (
+                    <div className="animate-in fade-in-0 duration-500">
+                      <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+                        DESCRIPCIÓN <span className="text-red-500">(*)</span>
+                      </label>
+                      <textarea
+                        id="description"
+                        name="description"
+                        rows={3}
+                        className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm"
+                        placeholder="Motivo del cierre..."
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="mt-8">
+            
+            <div className="mt-auto pt-4">
               <button
                 type="button"
                 className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-600 transition-all font-semibold shadow-md hover:shadow-lg"
