@@ -1,74 +1,37 @@
 "use client";
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-
-// Credenciales para el usuario final (cliente)
-const USER_CREDENTIALS = {
-  email: "ana.gonzales@example.com",
-  password: "soporte123"
-};
-
-// Credenciales para el analista de soporte
-const ANALYST_CREDENTIALS = {
-  email: "luis.rodriguez@example.com", // Corregido para que coincida con la imagen
-  password: "analyst123" // Contraseña sugerida
-};
-
+import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
+import { signIn } from "next-auth/react";
+import GoogleIcon from "@/components/icons/google-icon"; // Asegúrate de haber creado este archivo
+import Link from 'next/link';
 
 export function LoginForm() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleGoogleLogin = async () => {
     setIsLoading(true);
-
-    // Simular una pequeña demora de red
-    setTimeout(() => {
-      // Verificar si es el analista
-      if (email === ANALYST_CREDENTIALS.email && password === ANALYST_CREDENTIALS.password) {
-        if (typeof window !== 'undefined') {
-          localStorage.clear();
-          localStorage.setItem('user', JSON.stringify({
-            email: ANALYST_CREDENTIALS.email,
-            name: "Luis Rodríguez",
-            role: "analyst" // Añadimos un rol para diferenciarlo
-          }));
-        }
-        router.push('/analyst/dashboard'); // Redirigir al dashboard del analista
-      }
-      // Verificar si es el usuario final
-      else if (email === USER_CREDENTIALS.email && password === USER_CREDENTIALS.password) {
-        if (typeof window !== 'undefined') {
-          localStorage.clear();
-          localStorage.setItem('user', JSON.stringify({
-            email: USER_CREDENTIALS.email,
-            name: "Ana González",
-            role: "user"
-          }));
-        }
-        router.push('/chat'); // Redirigir a la página de chat
-      }
-      // Credenciales incorrectas
-      else {
+    try {
+        // Inicia el flujo de Google y redirige a /chat al completar
+        await signIn("google", { callbackUrl: "/chat" });
+    } catch (error) {
+        console.error("Error al iniciar sesión con Google:", error);
         toast({
-          title: "Error de autenticación",
-          description: "El correo o contraseña son incorrectos.",
+          title: "Error de inicio de sesión",
+          description: "No se pudo autenticar con Google. Intenta de nuevo.",
           variant: "destructive",
         });
-        setIsLoading(false);
-      }
-    }, 1000);
+        setIsLoading(false); 
+    }
   };
 
   return (
-    <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-10">
-      {/* Logo de Analytics */}
+    <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-10 login-card">
+      
+      
       <div className="flex justify-center mb-6">
         <div className="w-16 h-16">
           <img
@@ -79,57 +42,68 @@ export function LoginForm() {
         </div>
       </div>
       
-      {/* Título Analytics */}
+      
       <h1 className="text-2xl font-bold text-center text-gray-900 mb-2">
         analytics
       </h1>
       
-      {/* Slogan Analytics */}
+      
       <p className="text-sm text-center text-gray-500 mb-8">
         Let the data drive the strategy
       </p>
       
-      {/* Formulario */}
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <input
-            type="email"
-            placeholder="correo electrónico"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            disabled={isLoading}
-            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#4285f4] focus:bg-white transition-all text-sm"
-          />
-        </div>
-        
-        <div>
-          <input
-            type="password"
-            placeholder="contraseña"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            disabled={isLoading}
-            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#4285f4] focus:bg-white transition-all text-sm"
-          />
-        </div>
-        
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="w-full py-3 bg-[#4285f4] hover:bg-[#3367d6] text-white font-medium rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed mt-6"
-        >
-          {isLoading ? 'Iniciando...' : 'Iniciar sesión'}
-        </button>
-      </form>
+
+
       
-      {/* Info de credenciales demo */}
-      <div className="mt-6 p-3 bg-blue-50 rounded-lg border border-blue-200 text-xs text-center text-blue-700">
-        <p><strong>Usuario:</strong> ana.gonzales@example.com / soporte123</p>
-        <p className="mt-1"><strong>Analista:</strong> luis.rodriguez@example.com / analyst123</p>
+      
+      <h2 className="text-3xl font-bold text-center text-gray-900 mb-2">
+        ¡Bienvenido!
+      </h2>
+      
+   
+      <p className="text-base text-center text-gray-600 mb-8">
+        Inicia sesión para ingresar a la plataforma
+      </p>
+    
+
+      
+
+      <div className="space-y-4">
+         <Button
+            onClick={handleGoogleLogin}
+            disabled={isLoading}
+            variant="outline" 
+            className="w-full h-14 text-lg py-3 font-semibold rounded-lg bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-50 hover:shadow-lg transition-all duration-300"
+        >
+            {isLoading ? (
+                <>
+                    <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                    Iniciando sesión...
+                </>
+            ) : (
+                <>
+                    <GoogleIcon className="h-6 w-6" />
+                    <span className="ml-3 text-base">Sign in with Google</span>
+                </>
+            )}
+        </Button>
+      </div>
+      
+    
+      <div className="mt-6 text-center text-xs text-gray-500 space-y-2">
+          <p>
+              Al continuar, aceptas nuestros{' '}
+              <Link href="#" className="text-blue-600 hover:underline">
+                  Términos de Servicio
+              </Link>{' '}
+              y{' '}
+              <Link href="#" className="text-blue-600 hover:underline">
+                  Política de Privacidad
+              </Link>
+          </p>
       </div>
     </div>
   );
 }
+
 
