@@ -1,41 +1,65 @@
-import { withAuth } from "next-auth/middleware";
+import { getToken } from "next-auth/jwt";
+import { NextRequest, NextResponse } from "next/server";
 
-export default withAuth(
-  // Esta función 'middleware' puede estar vacía si solo necesitas proteger rutas.
-  // next-auth se encarga del resto basado en los callbacks.
-  function middleware(req) {
-    // Puedes agregar lógica personalizada aquí si la necesitas en el futuro.
-  },
-  {
-    callbacks: {
-      authorized: ({ token }) => {
-        // Si hay un token (lo que significa que el inicio de sesión fue exitoso),
-        // el usuario está autorizado.
-        return !!token;
-      },
-    },
-    // Le decimos a next-auth dónde está nuestra página de login.
-    pages: {
-      signIn: "/login",
-    },
+export async function middleware(req: NextRequest) {
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const { pathname } = req.nextUrl;
+
+  const userEmail = token?.email as string | null;
+
+  // 1. LÓGICA DE USUARIO NO AUTENTICADO
+  if (!token) {
+    // Si intenta acceder a cualquier ruta protegida que NO SEA /login, redirigir a /login.
+    if (pathname !== "/login") {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+    // Si está en /login y no tiene token, permitir que vea la página de login.
+    return NextResponse.next();
   }
-);
 
-// --- ESTA ES LA PARTE IMPORTANTE (LA CORRECCIÓN) ---
-// Adaptamos el matcher de SoporteAI para que funcione con tu proyecto Soporte.
+  // 2. LÓGICA DE USUARIO AUTENTICADO (token existe)
+  const isUnmsm = userEmail?.endsWith("@unmsm.edu.pe");
+  const isGmailAnalyst = userEmail?.endsWith("@gmail.com");
+
+  // Si un usuario YA logueado intenta volver a /login, lo mandamos a su "home" respectivo.
+  if (pathname === "/login") {
+    const homeUrl = isGmailAnalyst ? "/analyst/dashboard" : "/chat";
+    return NextResponse.redirect(new URL(homeUrl, req.url));
+  }
+  
+  // Si el usuario autenticado visita la RUTA RAÍZ (/), lo redirigimos a su "home".
+  // (El formulario de login envía por defecto a /chat, pero esto cubre si visitan / directamente).
+  if (pathname === "/") {
+     const homeUrl = isGmailAnalyst ? "/analyst/dashboard" : "/chat";
+     return NextResponse.redirect(new URL(homeUrl, req.url));
+  }
+
+  // 3. PROTECCIÓN DE RUTAS (ROLES)
+  
+  // Caso 1: Usuario de Gmail (Analista) intentando acceder a la interfaz del Chatbot.
+  if (isGmailAnalyst && pathname.startsWith("/chat")) {
+    // Bloquear acceso y redirigir a su dashboard correcto.
+    return NextResponse.redirect(new URL("/analyst/dashboard", req.url));
+  }
+
+  // Caso 2: Usuario de UNMSM (Estudiante) intentando acceder a las rutas de Analista.
+  if (isUnmsm && pathname.startsWith("/analyst")) {
+     // Bloquear acceso y redirigir al chat.
+    return NextResponse.redirect(new URL("/chat", req.url));
+  }
+
+  // 4. PERMITIR ACCESO
+  // Si ninguna regla anterior aplica (ej: UNMSM en /chat, o Gmail en /analyst/dashboard),
+  // permitir que la solicitud continúe.
+  return NextResponse.next();
+}
+
 export const config = {
+  // Aplicar este middleware a todas las rutas críticas.
   matcher: [
-    /*
-     * Coincide con todas las rutas excepto las que comienzan con:
-     * - api (rutas de API, incluyendo nuestra API de auth)
-     * - _next/static (archivos estáticos de Next.js)
-     * - _next/image (imágenes optimizadas de Next.js)
-     * - favicon.ico (el ícono de la pestaña)
-     * - login (la página de inicio de sesión pública)
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico|login).*)',
-    
-    // También protegemos explícitamente la raíz (/)
-    '/', 
+    "/chat/:path*",
+    "/login",
+    "/analyst/:path*",
+    "/", // Proteger la ruta raíz también
   ],
 };

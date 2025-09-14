@@ -2,7 +2,6 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-// 1. Lee la URL de tu backend (que configuraste en .env.local)
 const backendApiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
 
 if (!backendApiUrl) {
@@ -17,28 +16,43 @@ const handler = NextAuth({
     }),
   ],
   callbacks: {
+    
     async signIn({ account, profile }) {
-      if (account?.provider === "google") {
+      if (account?.provider === "google" && profile?.email) {
+        
+        // 1. Asegurarse que el email esté verificado por Google
         // @ts-ignore
-        return profile?.email_verified === true;
+        if (!profile?.email_verified) {
+          console.warn("Intento de login con email no verificado:", profile.email);
+          return false; // Denegar acceso si el email no está verificado
+        }
+
+        const email = profile.email;
+
+        if (email.endsWith('@unmsm.edu.pe') || email.endsWith('@gmail.com')) {
+          return true; // <-- Devolver TRUE permite que el callback JWT se ejecute.
+        }
+
+        console.warn("Dominio no autorizado intentó iniciar sesión:", email);
+        return false;
+
       }
+      
+      // Denegar cualquier otro tipo de inicio de sesión o si falta información
       return false; 
     },
 
-    // --- 2. MODIFICACIÓN DEL CALLBACK 'JWT' ---
-    async jwt({ token, profile, account }) { // <-- Se añade el parámetro 'account'
+  
+    async jwt({ token, profile, account }) { 
       
-      // 'account' solo está disponible la primera vez que el usuario inicia sesión
       if (account && account.provider === 'google') {
         try {
-          // Tomamos el id_token que nos dio Google
           const googleIdToken = account.id_token;
 
           if (!googleIdToken) {
             throw new Error("No se encontró el id_token de Google en la cuenta.");
           }
 
-          // Llamamos a NUESTRO backend FastAPI para intercambiar el token
           const response = await fetch(`${backendApiUrl}/api/auth/google/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -51,12 +65,10 @@ const handler = NextAuth({
             throw new Error(`Error del backend de FastAPI: ${response.status}`);
           }
 
-          const backendData = await response.json(); // Esperamos { access_token: "..." }
+          const backendData = await response.json(); 
 
-          // GUARDAMOS EL TOKEN DE FASTAPI (NO EL DE GOOGLE) DENTRO DE LA SESIÓN DE NEXTAUTH
           token.backendAccessToken = backendData.access_token;
 
-          // Guardamos el nombre y email (como ya lo hacías)
           if (profile) {
             token.name = profile.name;
             token.email = profile.email;
@@ -66,26 +78,21 @@ const handler = NextAuth({
 
         } catch (error) {
           console.error("Error crítico en el callback JWT:", error);
-          // Si el intercambio falla, no debemos autenticar al usuario.
           return token; 
         }
       }
       
-      // En llamadas futuras (cuando el usuario ya tiene sesión), solo devolvemos el token que ya guardamos.
       return token;
     },
 
-
-    // --- 3. MODIFICACIÓN DEL CALLBACK 'SESSION' ---
     async session({ session, token }) {
       if (session.user) {
         session.user.name = token.name as string;
         session.user.email = token.email as string;
       }
       
-      // Exponemos el token de FastAPI al cliente (para usarlo con useSession)
       // @ts-ignore
-      session.backendAccessToken = token.backendAccessToken; // <-- ESTA LÍNEA ES CRUCIAL
+      session.backendAccessToken = token.backendAccessToken; 
 
       return session;
     },
@@ -98,4 +105,3 @@ const handler = NextAuth({
 });
 
 export { handler as GET, handler as POST };
-
