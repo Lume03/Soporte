@@ -1,18 +1,16 @@
+// src/app/analyst/ticket/[id]/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Bot, User, ArrowLeft } from "lucide-react";
-
-import { getAnalystTicketDetail } from "@/lib/actions";
 import { AnalystHeader } from "@/components/analyst/analyst-header";
+import { getAnalystTicketDetail, updateAnalystTicketStatus } from "@/lib/actions";
 
-type ChatMessage = {
-  role: "user" | "assistant";
-  content: string;
-};
+type ChatMessage = { role: "user" | "assistant"; content: string };
+type TicketStatus = "Abierto" | "En Atención" | "Cerrado" | "Rechazado";
 
 function DetailCard({ label, value }: { label: string; value: string }) {
   return (
@@ -23,73 +21,6 @@ function DetailCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Skeleton para la página de detalle del ticket */
-function TicketDetailSkeleton() {
-  return (
-      <div className="min-h-screen bg-[#F7FAFC]">
-        <AnalystHeader />
-        <main className="p-8">
-          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-            {/* Izquierda */}
-            <div className="lg:col-span-4 bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col">
-              <div className="h-4 w-40 bg-gray-200 rounded animate-pulse mb-4" />
-              <div className="h-6 w-3/4 bg-gray-200 rounded animate-pulse mb-2" />
-              <div className="h-4 w-24 bg-gray-200 rounded animate-pulse mb-6" />
-              <div className="grid grid-cols-2 gap-4 mb-8">
-                {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                      <div className="h-3 w-16 bg-gray-200 rounded animate-pulse mb-2" />
-                      <div className="h-4 w-24 bg-gray-100 rounded animate-pulse" />
-                    </div>
-                ))}
-              </div>
-              <div className="h-10 w-full bg-gray-200 rounded-lg animate-pulse mt-auto" />
-            </div>
-
-            {/* Derecha */}
-            <div className="lg:col-span-8 bg-white p-6 rounded-xl shadow-md border border-gray-100">
-              <div className="h-5 w-40 bg-gray-200 rounded animate-pulse mb-6" />
-              <div className="space-y-6">
-                {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="flex items-start gap-4">
-                      <div className="w-9 h-9 rounded-full bg-gray-200 animate-pulse" />
-                      <div className="w-2/3 h-16 bg-gray-100 rounded-2xl animate-pulse" />
-                    </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </main>
-      </div>
-  );
-}
-
-// Mapeos UI <-> BD
-const DB_TO_UI: Record<string, string> = {
-  "aceptado": "Abierto",
-  "abierto": "Abierto",
-  "en proceso": "Abierto",
-  "en progreso": "Abierto",
-  "en atención": "En Atención",
-  "en atencion": "En Atención",
-  "cerrado": "Cerrado",
-  "finalizado": "Cerrado",
-  "cancelado": "Rechazado",
-  "rechazado": "Rechazado",
-};
-const UI_TO_DB: Record<string, string> = {
-  "Abierto": "aceptado",
-  "En Atención": "en atención",
-  "Cerrado": "cerrado",
-  "Rechazado": "cancelado",
-};
-const STATUS_OPTIONS_DB = [
-  { db: "aceptado", ui: "Abierto" },
-  { db: "en atención", ui: "En Atención" },
-  { db: "cerrado", ui: "Cerrado" },
-  { db: "cancelado", ui: "Rechazado" },
-];
-
 export default function TicketDetailPage() {
   const { data: session } = useSession();
   const token = (session as any)?.backendAccessToken as string | undefined;
@@ -98,7 +29,10 @@ export default function TicketDetailPage() {
   const id = params?.id;
 
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveOk, setSaveOk] = useState(false);
 
   const [ticket, setTicket] = useState<{
     id_ticket: number;
@@ -109,38 +43,37 @@ export default function TicketDetailPage() {
     service?: string;
     email?: string;
     date?: string;
-    status?: string; // UI label (Abierto/En Atención/...)
+    status?: TicketStatus;
   } | null>(null);
 
   const [conversation, setConversation] = useState<ChatMessage[]>([]);
 
-  // gestión de estado
-  const [selectedStatusDb, setSelectedStatusDb] = useState<string>("aceptado");
-  const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  // Gestión
+  const [currentStatus, setCurrentStatus] = useState<TicketStatus>("Abierto");
+  const [selectedStatus, setSelectedStatus] = useState<TicketStatus>("Abierto");
+  const [description, setDescription] = useState("");
+
+  const requiresDescription = useMemo(
+      () => selectedStatus === "Cerrado",
+      [selectedStatus]
+  );
 
   useEffect(() => {
     if (!token || !id) return;
-    let active = true;
-
     (async () => {
       setLoading(true);
       setError(null);
       try {
         const data = await getAnalystTicketDetail(id, token);
-
         const conv: ChatMessage[] = (data.conversation || []).map((m: any) => ({
           role: m.role === "agent" ? "assistant" : "user",
           content: m.content,
         }));
-
-        if (!active) return;
-
-        // data.status viene normalizado desde actions.ts; lo convertimos a DB para el selector
-        const statusUi: string | undefined = data.status; // (Abierto/En Atención/...)
-        const statusDb = statusUi ? UI_TO_DB[statusUi] ?? "aceptado" : "aceptado";
-
         setConversation(conv);
+
+        const s: TicketStatus | undefined = data.status as TicketStatus | undefined;
+        const initial = (s ?? "Abierto") as TicketStatus;
+
         setTicket({
           id_ticket: data.id_ticket,
           subject: data.subject,
@@ -150,54 +83,67 @@ export default function TicketDetailPage() {
           service: data.service,
           email: data.email,
           date: data.date,
-          status: statusUi,
+          status: s,
         });
-        setSelectedStatusDb(statusDb);
+        setCurrentStatus(initial);
+        setSelectedStatus(initial);
+        setDescription("");
       } catch (e: any) {
         console.error(e);
-        if (!active) return;
         setError(e?.message || "Error al cargar el ticket");
       } finally {
-        if (active) setLoading(false);
+        setLoading(false);
       }
     })();
-
-    return () => {
-      active = false;
-    };
   }, [token, id]);
 
+  const onChangeStatus = (value: string) => {
+    const v = value as TicketStatus;
+    setSelectedStatus(v);
+    setSaveOk(false);
+    setSaveError(null);
+    if (v !== "Cerrado") setDescription("");
+  };
+
   const handleSave = async () => {
-    if (!ticket || !token) return;
+    setSaveError(null);
+    setSaveOk(false);
+
+    if (!token || !ticket) return;
+
+    if (requiresDescription && !description.trim()) {
+      setSaveError("La descripción es obligatoria para cerrar el ticket.");
+      return;
+    }
+
     try {
       setSaving(true);
-      setSaveMessage(null);
-      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL!;
-      const res = await fetch(`${baseUrl}/api/analista/tickets/${ticket.id_ticket}/status`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status: selectedStatusDb }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-
-      const ui = DB_TO_UI[String(json.status || selectedStatusDb).toLowerCase()] || "Abierto";
-      setTicket((t) => (t ? { ...t, status: ui } : t));
-      setSaveMessage("Estado actualizado correctamente.");
-    } catch (e) {
+      await updateAnalystTicketStatus(
+          ticket.id_ticket,
+          selectedStatus,
+          description.trim(),
+          token
+      );
+      setSaveOk(true);
+      setCurrentStatus(selectedStatus);
+      setTicket({ ...ticket, status: selectedStatus });
+    } catch (e: any) {
       console.error(e);
-      setSaveMessage("Error al actualizar el estado.");
+      setSaveError(e?.message || "Error al actualizar el estado.");
     } finally {
       setSaving(false);
-      setTimeout(() => setSaveMessage(null), 3000);
     }
   };
 
   if (loading) {
-    return <TicketDetailSkeleton />;
+    return (
+        <div className="min-h-screen bg-[#F7FAFC]">
+          <AnalystHeader />
+          <main className="p-8">
+            <div className="max-w-7xl mx-auto text-gray-600">Cargando...</div>
+          </main>
+        </div>
+    );
   }
 
   if (error || !ticket) {
@@ -218,7 +164,7 @@ export default function TicketDetailPage() {
         <AnalystHeader />
         <main className="p-8">
           <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-            {/* Columna izquierda: detalles del ticket */}
+            {/* Izquierda: detalles + gestión */}
             <div className="lg:col-span-4 bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col">
               <div className="flex-grow">
                 <Link
@@ -232,7 +178,9 @@ export default function TicketDetailPage() {
                 <h2 className="text-xl font-bold text-gray-900 leading-tight mb-1">
                   {ticket.subject}
                 </h2>
-                <p className="text-sm text-blue-600 font-medium mb-8">{ticket.id_ticket}</p>
+                <p className="text-sm text-blue-600 font-medium mb-8">
+                  {ticket.id_ticket}
+                </p>
 
                 <h3 className="text-sm font-semibold text-gray-500 mb-3 border-b pb-2">
                   Detalles del Ticket
@@ -248,51 +196,88 @@ export default function TicketDetailPage() {
                   <DetailCard label="Fecha" value={ticket.date || "-"} />
                 </div>
 
-                {/* Gestión del Ticket */}
+                {/* Gestión */}
                 <div className="space-y-4">
                   <h3 className="text-sm font-semibold text-gray-500 mb-3 border-b pb-2">
                     Gestión del Ticket
                   </h3>
 
-                  {/* Estado actual (UI) */}
-                  <DetailCard label="Estado actual" value={ticket.status || "-"} />
+                  <div className="flex items-center justify-between gap-4">
+                    <label className="block text-sm font-medium text-gray-700 whitespace-nowrap">
+                      ESTADO ACTUAL
+                    </label>
+                    <input
+                        value={currentStatus || "-"}
+                        disabled
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 text-sm shadow-sm"
+                    />
+                  </div>
 
-                  {/* Selector de nuevo estado (DB) */}
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs text-gray-500 uppercase tracking-wider">
-                      Cambiar a
+                  <div className="flex items-center justify-between gap-4">
+                    <label
+                        htmlFor="status"
+                        className="block text-sm font-medium text-gray-700 whitespace-nowrap"
+                    >
+                      CAMBIAR A
                     </label>
                     <select
-                        value={selectedStatusDb}
-                        onChange={(e) => setSelectedStatusDb(e.target.value)}
-                        className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        id="status"
+                        name="status"
+                        value={selectedStatus}
+                        onChange={(e) => onChangeStatus(e.target.value)}
+                        className="w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm"
                     >
-                      {STATUS_OPTIONS_DB.map((opt) => (
-                          <option key={opt.db} value={opt.db}>
-                            {opt.ui}
-                          </option>
-                      ))}
+                      <option>Abierto</option>
+                      <option>En Atención</option>
+                      <option>Cerrado</option>
+                      <option>Rechazado</option>
                     </select>
-                    {saveMessage && (
-                        <p className="text-xs text-gray-500">{saveMessage}</p>
+                  </div>
+
+                  <div className="min-h-[105px]">
+                    {requiresDescription && (
+                        <div className="animate-in fade-in-0 duration-500">
+                          <label
+                              htmlFor="description"
+                              className="block text-sm font-medium text-gray-700 mb-2"
+                          >
+                            DESCRIPCIÓN <span className="text-red-500">(*)</span>
+                          </label>
+                          <textarea
+                              id="description"
+                              name="description"
+                              rows={3}
+                              value={description}
+                              onChange={(e) => setDescription(e.target.value)}
+                              className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm"
+                              placeholder="Motivo del cierre / cómo se solucionó…"
+                          />
+                        </div>
                     )}
                   </div>
+
+                  {saveError && <p className="text-sm text-red-600">{saveError}</p>}
+                  {saveOk && (
+                      <p className="text-sm text-green-600">
+                        Estado actualizado correctamente.
+                      </p>
+                  )}
                 </div>
               </div>
 
               <div className="mt-auto pt-4">
                 <button
                     type="button"
-                    onClick={handleSave}
                     disabled={saving}
-                    className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-600 transition-all font-semibold shadow-md hover:shadow-lg disabled:opacity-60"
+                    onClick={handleSave}
+                    className="w-full bg-gradient-to-r from-blue-600 to-blue-500 disabled:opacity-60 text-white py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-600 transition-all font-semibold shadow-md hover:shadow-lg"
                 >
-                  {saving ? "Guardando..." : "Guardar"}
+                  {saving ? "Guardando…" : "Guardar"}
                 </button>
               </div>
             </div>
 
-            {/* Columna derecha: conversación */}
+            {/* Derecha: conversación */}
             <div className="lg:col-span-8 bg-white p-6 rounded-xl shadow-md border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-800 mb-6 border-b pb-3">
                 Conversación
