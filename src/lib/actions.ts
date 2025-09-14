@@ -1,4 +1,4 @@
-"use server";
+// src/lib/actions.ts
 
 export interface AgentResponse {
   answer: string;
@@ -8,71 +8,125 @@ export interface AgentResponse {
   showContactSupport?: boolean;
 }
 
+// Mapea estados de BD → estados de UI usados por <TicketStatusBadge />
+function toUiStatus(
+    raw?: string
+): 'Abierto' | 'En Atención' | 'Cerrado' | 'Rechazado' | undefined {
+  if (!raw) return undefined;
+  const v = raw
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+
+  if (v === 'en atencion') return 'En Atención';
+  if (v === 'aceptado' || v === 'abierto' || v === 'en proceso' || v === 'en progreso') return 'Abierto';
+  if (v === 'cerrado' || v === 'finalizado') return 'Cerrado';
+  if (v === 'cancelado' || v === 'rechazado' || v === 'anulado') return 'Rechazado';
+  return undefined;
+}
+
 export async function submitMessage(
-  message: string,
-  thread_id: string | null,
-  backendToken: string  // <--- Este argumento es nuevo y obligatorio
+    message: string,
+    thread_id: string | null,
+    backendToken: string
 ): Promise<AgentResponse> {
-
   const backendApiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-
   if (!backendApiUrl) {
-    console.error("Error: La variable de entorno NEXT_PUBLIC_BACKEND_API_URL no está configurada.");
-    throw new Error("La configuración del servidor está incompleta.");
+    console.error('Error: La variable de entorno NEXT_PUBLIC_BACKEND_API_URL no está configurada.');
+    throw new Error('La configuración del servidor está incompleta.');
   }
 
   try {
-    const requestBody: { query: string; thread_id?: string } = {
-      query: message,
-    };
+    const body: { query: string; thread_id?: string } = { query: message };
+    if (thread_id) body.thread_id = thread_id;
 
-    if (thread_id) {
-      requestBody.thread_id = thread_id;
-    }
-
-    const response = await fetch(`${backendApiUrl}/api/chat`, {
-      method: "POST",
+    const res = await fetch(`${backendApiUrl}/api/chat`, {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        // --- CAMBIO 2: Añadimos el Header de Autorización (Esto resuelve el 401) ---
+        'Content-Type': 'application/json',
         Authorization: `Bearer ${backendToken}`,
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify(body),
     });
 
-    if (!response.ok) {
-      console.error(
-        `La API del backend respondió con un error: ${response.status} ${response.statusText}`
-      );
-
-      // Si el error es 401 AHORA, significa que el token expiró o es inválido
-      if (response.status === 401) {
-        console.error(
-          "Token de FastAPI rechazado por el backend. El usuario debe re-autenticarse."
-        );
+    if (!res.ok) {
+      console.error(`La API del backend respondió con un error: ${res.status} ${res.statusText}`);
+      if (res.status === 401) {
+        console.error('Token de FastAPI rechazado por el backend. El usuario debe re-autenticarse.');
       }
-
-      throw new Error("Hubo un problema al comunicarse con el agente de soporte.");
+      throw new Error('Hubo un problema al comunicarse con el agente de soporte.');
     }
 
-    const result = await response.json();
+    const result = await res.json();
+    const text = String(result.response || "");
+
+// Permite "He generado el ticket **#14** ..." o "He generado el ticket #14 ..."
+    const ticketCreated = /he generado el ticket[^0-9]*\d+/i.test(text);
 
     return {
       answered: true,
-      answer: result.response,
+      answer: text,
       thread_id: result.thread_id,
       showFeedback: true,
-      showContactSupport: false,
+      showContactSupport: ticketCreated,  // <- activa el “modo cerrado”
     };
-  } catch (error) {
-    console.error("Error al llamar a la API del backend:", error);
+  } catch (err) {
+    console.error('Error al llamar a la API del backend:', err);
     return {
       answered: false,
       answer:
-        "Lo siento, estoy teniendo problemas para conectarme con el agente de soporte. Por favor, intenta de nuevo más tarde.",
-      thread_id: thread_id || "",
+          'Lo siento, estoy teniendo problemas para conectarme con el agente de soporte. Por favor, intenta de nuevo más tarde.',
+      thread_id: thread_id || '',
       showFeedback: false,
       showContactSupport: true,
     };
   }
+}
+
+export async function getAnalystTickets(token: string, limit = 10, offset = 0) {
+  const baseUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+  if (!baseUrl) {
+    throw new Error('Falta NEXT_PUBLIC_BACKEND_API_URL en el .env.local del front');
+  }
+
+  const res = await fetch(
+      `${baseUrl}/api/analista/conversaciones?limit=${limit}&offset=${offset}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      }
+  );
+
+  if (!res.ok) {
+    throw new Error(`Error al listar conversaciones: ${res.status}`);
+  }
+
+  const data = await res.json();
+  // Normaliza estados para que el badge de la tabla se muestre
+  data.items = (data.items || []).map((t: any) => ({
+    ...t,
+    status: toUiStatus(t.status),
+  }));
+  return data; // { items, total, limit, offset }
+}
+
+export async function getAnalystTicketDetail(id_ticket: number | string, token: string) {
+  const baseUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+  if (!baseUrl) {
+    throw new Error('Falta NEXT_PUBLIC_BACKEND_API_URL en el .env.local del front');
+  }
+
+  const res = await fetch(`${baseUrl}/api/analista/conversaciones/${id_ticket}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`Error al obtener detalle: ${res.status}`);
+  }
+
+  const data = await res.json();
+  // Normaliza estado para la vista de detalle
+  return { ...data, status: toUiStatus(data.status) };
 }
