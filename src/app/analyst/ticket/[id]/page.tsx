@@ -64,6 +64,32 @@ function TicketDetailSkeleton() {
   );
 }
 
+// Mapeos UI <-> BD
+const DB_TO_UI: Record<string, string> = {
+  "aceptado": "Abierto",
+  "abierto": "Abierto",
+  "en proceso": "Abierto",
+  "en progreso": "Abierto",
+  "en atención": "En Atención",
+  "en atencion": "En Atención",
+  "cerrado": "Cerrado",
+  "finalizado": "Cerrado",
+  "cancelado": "Rechazado",
+  "rechazado": "Rechazado",
+};
+const UI_TO_DB: Record<string, string> = {
+  "Abierto": "aceptado",
+  "En Atención": "en atención",
+  "Cerrado": "cerrado",
+  "Rechazado": "cancelado",
+};
+const STATUS_OPTIONS_DB = [
+  { db: "aceptado", ui: "Abierto" },
+  { db: "en atención", ui: "En Atención" },
+  { db: "cerrado", ui: "Cerrado" },
+  { db: "cancelado", ui: "Rechazado" },
+];
+
 export default function TicketDetailPage() {
   const { data: session } = useSession();
   const token = (session as any)?.backendAccessToken as string | undefined;
@@ -83,10 +109,15 @@ export default function TicketDetailPage() {
     service?: string;
     email?: string;
     date?: string;
-    status?: string;
+    status?: string; // UI label (Abierto/En Atención/...)
   } | null>(null);
 
   const [conversation, setConversation] = useState<ChatMessage[]>([]);
+
+  // gestión de estado
+  const [selectedStatusDb, setSelectedStatusDb] = useState<string>("aceptado");
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token || !id) return;
@@ -104,6 +135,11 @@ export default function TicketDetailPage() {
         }));
 
         if (!active) return;
+
+        // data.status viene normalizado desde actions.ts; lo convertimos a DB para el selector
+        const statusUi: string | undefined = data.status; // (Abierto/En Atención/...)
+        const statusDb = statusUi ? UI_TO_DB[statusUi] ?? "aceptado" : "aceptado";
+
         setConversation(conv);
         setTicket({
           id_ticket: data.id_ticket,
@@ -114,8 +150,9 @@ export default function TicketDetailPage() {
           service: data.service,
           email: data.email,
           date: data.date,
-          status: data.status,
+          status: statusUi,
         });
+        setSelectedStatusDb(statusDb);
       } catch (e: any) {
         console.error(e);
         if (!active) return;
@@ -129,6 +166,35 @@ export default function TicketDetailPage() {
       active = false;
     };
   }, [token, id]);
+
+  const handleSave = async () => {
+    if (!ticket || !token) return;
+    try {
+      setSaving(true);
+      setSaveMessage(null);
+      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL!;
+      const res = await fetch(`${baseUrl}/api/analista/tickets/${ticket.id_ticket}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: selectedStatusDb }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+
+      const ui = DB_TO_UI[String(json.status || selectedStatusDb).toLowerCase()] || "Abierto";
+      setTicket((t) => (t ? { ...t, status: ui } : t));
+      setSaveMessage("Estado actualizado correctamente.");
+    } catch (e) {
+      console.error(e);
+      setSaveMessage("Error al actualizar el estado.");
+    } finally {
+      setSaving(false);
+      setTimeout(() => setSaveMessage(null), 3000);
+    }
+  };
 
   if (loading) {
     return <TicketDetailSkeleton />;
@@ -155,7 +221,6 @@ export default function TicketDetailPage() {
             {/* Columna izquierda: detalles del ticket */}
             <div className="lg:col-span-4 bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col">
               <div className="flex-grow">
-                {/* Mantengo tu ruta tal cual */}
                 <Link
                     href="/analyst/dashboard"
                     className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 mb-6 transition-colors"
@@ -167,9 +232,7 @@ export default function TicketDetailPage() {
                 <h2 className="text-xl font-bold text-gray-900 leading-tight mb-1">
                   {ticket.subject}
                 </h2>
-                <p className="text-sm text-blue-600 font-medium mb-8">
-                  {ticket.id_ticket}
-                </p>
+                <p className="text-sm text-blue-600 font-medium mb-8">{ticket.id_ticket}</p>
 
                 <h3 className="text-sm font-semibold text-gray-500 mb-3 border-b pb-2">
                   Detalles del Ticket
@@ -185,19 +248,46 @@ export default function TicketDetailPage() {
                   <DetailCard label="Fecha" value={ticket.date || "-"} />
                 </div>
 
+                {/* Gestión del Ticket */}
                 <div className="space-y-4">
                   <h3 className="text-sm font-semibold text-gray-500 mb-3 border-b pb-2">
                     Gestión del Ticket
                   </h3>
+
+                  {/* Estado actual (UI) */}
+                  <DetailCard label="Estado actual" value={ticket.status || "-"} />
+
+                  {/* Selector de nuevo estado (DB) */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-gray-500 uppercase tracking-wider">
+                      Cambiar a
+                    </label>
+                    <select
+                        value={selectedStatusDb}
+                        onChange={(e) => setSelectedStatusDb(e.target.value)}
+                        className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {STATUS_OPTIONS_DB.map((opt) => (
+                          <option key={opt.db} value={opt.db}>
+                            {opt.ui}
+                          </option>
+                      ))}
+                    </select>
+                    {saveMessage && (
+                        <p className="text-xs text-gray-500">{saveMessage}</p>
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="mt-auto pt-4">
                 <button
                     type="button"
-                    className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-600 transition-all font-semibold shadow-md hover:shadow-lg"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-600 transition-all font-semibold shadow-md hover:shadow-lg disabled:opacity-60"
                 >
-                  Guardar
+                  {saving ? "Guardando..." : "Guardar"}
                 </button>
               </div>
             </div>
