@@ -1,13 +1,25 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useState, useEffect } from 'react';
-import type { Message } from '@/lib/types';
-import { ChatArea } from '@/components/chat/chat-area';
-import { ChatInput } from '@/components/chat/chat-input';
-import { Bot, Send, Ticket as TicketIcon, User, Building2, UserCog, Briefcase, CalendarDays, CheckCircle, ClipboardList, FileText, CircleDot } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { submitMessage as handleMessageSubmit } from '@/lib/actions';
+import { useState, useEffect } from "react";
+import type { Message } from "@/lib/types";
+import { ChatArea } from "@/components/chat/chat-area";
+import { ChatInput } from "@/components/chat/chat-input";
+import {
+  Send,
+  Ticket as TicketIcon,
+  User,
+  Building2,
+  UserCog,
+  Briefcase,
+  CalendarDays,
+  CheckCircle,
+  ClipboardList,
+  FileText,
+  CircleDot,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { submitMessage as handleMessageSubmit } from "@/lib/actions";
 
 type TicketDetailItem = {
   icon: React.ElementType;
@@ -16,15 +28,106 @@ type TicketDetailItem = {
   color?: string;
 };
 
-function GeneratedTicketCard({ ticket }: { ticket: any }) {
+type TicketCard = {
+  id: string;
+  subject: string;
+  type?: string;
+  user?: string;
+  company?: string;
+  service?: string;
+  analyst?: string;
+  status?: string;
+  date?: string;
+};
+
+/* ------------------------ helpers de extracción ------------------------ */
+
+function htmlUnescape(s: string) {
+  if (!s) return s;
+  const el = document.createElement("textarea");
+  el.innerHTML = s;
+  return el.value;
+}
+
+/** Extrae y parsea cualquier <card ... type="ticket_detail" ...>{JSON}</card> */
+function extractTicketCard(answer: string): TicketCard | null {
+  if (!answer) return null;
+
+  const text = htmlUnescape(answer);
+
+  // Busca específicamente type="ticket_detail"
+  const specific =
+      text.match(
+          /<card\b[^>]*type\s*=\s*(['"])ticket_detail\1[^>]*>([\s\S]*?)<\/card>/i
+      ) ||
+      // Fallback: el primer <card>…</card>
+      text.match(/<card\b[^>]*>([\s\S]*?)<\/card>/i);
+
+  if (!specific) return null;
+
+  let body = specific[specific.length - 1];
+
+  // Intento 1: parseo directo
+  try {
+    return JSON.parse(body);
+  } catch (_) {
+    // Intento 2: buscar el primer bloque {...}
+    const j = body.match(/{[\s\S]*}/);
+    if (!j) return null;
+    try {
+      return JSON.parse(j[0]);
+    } catch {
+      // Intento 3: normalizar comillas simples
+      try {
+        const fixed = j[0]
+            .replace(/(['"])?([a-zA-Z0-9_]+)\1\s*:/g, '"$2":')
+            .replace(/'/g, '"');
+        return JSON.parse(fixed);
+      } catch {
+        return null;
+      }
+    }
+  }
+}
+
+/** Elimina cualquier bloque <card>…</card> del texto (para mostrar limpio en chat) */
+function stripAnyCard(answer: string) {
+  return htmlUnescape(answer).replace(/<card\b[^>]*>[\s\S]*?<\/card>/gi, "").trim();
+}
+
+/** Toma un asunto razonable desde los últimos mensajes del usuario (evita 'si/ok') */
+function pickReasonableSubject(
+    lastUserMessage: string,
+    messages: Message[]
+): string {
+  const CONFIRM = new Set([
+    "si","sí","ok","okay","vale","dale","ya","listo","sip","claro","de acuerdo","correcto"
+  ]);
+
+  // buscar desde el final el último mensaje de usuario no-confirmación
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role === "user") {
+      const t = (m.content || "").trim().toLowerCase();
+      if (t && !CONFIRM.has(t) && t.length > 3) {
+        return m.content;
+      }
+    }
+  }
+  return lastUserMessage || "Solicitud de soporte";
+}
+
+/* ------------------------ UI: card generado ------------------------ */
+
+function GeneratedTicketCard({ ticket }: { ticket: TicketCard }) {
   const details: TicketDetailItem[] = [
-    { icon: ClipboardList, label: 'Tipo', value: ticket.type },
-    { icon: User, label: 'Usuario', value: ticket.user },
-    { icon: Building2, label: 'Empresa', value: ticket.company },
-    { icon: Briefcase, label: 'Servicio', value: ticket.service },
-    { icon: UserCog, label: 'Analista', value: ticket.analyst },
-    { icon: CircleDot, label: 'Estado', value: ticket.status },
-    { icon: CalendarDays, label: 'Fecha', value: ticket.date },
+    { icon: ClipboardList, label: "Tipo", value: ticket.type ?? "-" },
+    { icon: User, label: "Usuario", value: ticket.user ?? "-" },
+    { icon: Building2, label: "Empresa", value: ticket.company ?? "-" },
+    { icon: Briefcase, label: "Servicio", value: ticket.service ?? "-" },
+    { icon: UserCog, label: "Analista", value: ticket.analyst ?? "-" },
+    { icon: CircleDot, label: "Estado", value: ticket.status ?? "Abierto" },
+    { icon: CalendarDays, label: "Fecha", value: ticket.date ?? "-" },
   ];
 
   return (
@@ -55,12 +158,14 @@ function GeneratedTicketCard({ ticket }: { ticket: any }) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 pt-4 border-t mt-4">
-            {details.map(item => (
+            {details.map((item) => (
                 <div key={item.label} className="flex items-start gap-3">
                   <item.icon className="h-5 w-5 text-gray-400 mt-1 flex-shrink-0" />
                   <div>
                     <p className="text-xs text-gray-500">{item.label}</p>
-                    <p className={`text-sm font-medium ${item.color || 'text-gray-800'}`}>{item.value}</p>
+                    <p className={`text-sm font-medium ${item.color || "text-gray-800"}`}>
+                      {item.value}
+                    </p>
                   </div>
                 </div>
             ))}
@@ -70,14 +175,22 @@ function GeneratedTicketCard({ ticket }: { ticket: any }) {
   );
 }
 
-function HomePage({ onSubmitMessage, isLoading }: { onSubmitMessage: (message: string) => void; isLoading: boolean; }) {
-  const [inputValue, setInputValue] = useState('');
+/* ------------------------ Home page ------------------------ */
+
+function HomePage({
+                    onSubmitMessage,
+                    isLoading,
+                  }: {
+  onSubmitMessage: (message: string) => void;
+  isLoading: boolean;
+}) {
+  const [inputValue, setInputValue] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (inputValue.trim()) {
       onSubmitMessage(inputValue.trim());
-      setInputValue('');
+      setInputValue("");
     }
   };
 
@@ -85,7 +198,11 @@ function HomePage({ onSubmitMessage, isLoading }: { onSubmitMessage: (message: s
       <div className="flex-1 flex items-center justify-center p-6 min-h-[calc(100vh-88px)]">
         <div className="w-full max-w-4xl bg-white rounded-2xl p-12 text-center mx-auto shadow-xl">
           <div className="w-20 h-20 mx-auto mb-8 relative">
-            <img src="https://i.ibb.co/S4CngF6F/new-analytics-logo.png" alt="Analytics Logo" className="w-full h-full object-contain" />
+            <img
+                src="https://i.ibb.co/S4CngF6F/new-analytics-logo.png"
+                alt="Analytics Logo"
+                className="w-full h-full object-contain"
+            />
           </div>
           <h1 className="text-3xl mb-6 leading-relaxed">
           <span className="bg-gradient-to-r from-[#3498DB] via-[#2980B9] to-[#1ABC9C] bg-clip-text text-transparent font-bold">
@@ -96,8 +213,18 @@ function HomePage({ onSubmitMessage, isLoading }: { onSubmitMessage: (message: s
             Estoy aquí para ayudarte a resolver una incidencia o a explorar el servicio perfecto para tu próximo proyecto. ¿Cómo te puedo ayudar hoy?
           </p>
           <form onSubmit={handleSubmit} className="relative max-w-2xl mx-auto">
-            <svg className="h-5 w-5 text-gray-400 absolute left-6 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-1l-4 4z" />
+            <svg
+                className="h-5 w-5 text-gray-400 absolute left-6 top-1/2 transform -translate-y-1/2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+            >
+              <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-1l-4 4z"
+              />
             </svg>
             <input
                 type="text"
@@ -113,9 +240,11 @@ function HomePage({ onSubmitMessage, isLoading }: { onSubmitMessage: (message: s
                 size="icon"
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-lg transition-transform active:scale-95"
             >
-              {isLoading
-                  ? <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  : <Send className="h-6 w-6" />}
+              {isLoading ? (
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                  <Send className="h-6 w-6" />
+              )}
             </Button>
           </form>
         </div>
@@ -123,36 +252,14 @@ function HomePage({ onSubmitMessage, isLoading }: { onSubmitMessage: (message: s
   );
 }
 
-// 🧩 Helper: construye un objeto ticket a partir del texto de respuesta
-function buildTicketFromAnswer(answerText: string, subject: string, session: any) {
-  // Captura "ticket **#14**" o "ticket #14" o "ticket 14"
-  const m = answerText.match(/ticket[^0-9]*([0-9]+)/i);
-  const idNum = m?.[1];
-
-  const userName = session?.user?.name ?? '-';
-  const company = (session?.user?.email?.split('@')?.[1] || '')
-      .replace(/\..*$/, '')
-      .toUpperCase() || '-';
-
-  return {
-    id: idNum ? `#${idNum}` : '-',
-    type: 'Incidencia',
-    user: userName,
-    company,
-    analyst: 'Soporte',      // si quieres, cámbialo al nombre real
-    subject,
-    service: 'DATA SCIENCE', // o el servicio que definas
-    status: 'Abierto',
-    date: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-  };
-}
+/* ------------------------ Chat page ------------------------ */
 
 export default function ChatPage() {
   const { data: session } = useSession();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showHomePage, setShowHomePage] = useState(true);
-  const [generatedTicket, setGeneratedTicket] = useState<any>(null);
+  const [generatedTicket, setGeneratedTicket] = useState<TicketCard | null>(null);
   const [showNewChatButton, setShowNewChatButton] = useState(false);
   const [isChatLocked, setIsChatLocked] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -168,7 +275,7 @@ export default function ChatPage() {
   };
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       (window as any).resetChatToHome = resetToHome;
     }
   }, []);
@@ -177,20 +284,26 @@ export default function ChatPage() {
     if (!messageContent.trim() || isLoading) return;
     setShowHomePage(false);
 
-    const userMessage: Message = { id: crypto.randomUUID(), role: 'user', content: messageContent };
-    setMessages(prev => [...prev, userMessage]);
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: messageContent,
+    };
+    setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
     // @ts-ignore
     const token = session?.backendAccessToken;
     if (!token) {
-      console.error("Error de autenticación: No se encontró el token del backend en la sesión.");
-      const errorMessage: Message = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: "Error de autenticación. No pude verificar tu sesión. Por favor, cierra sesión y vuelve a intentarlo."
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content:
+              "Error de autenticación. No pude verificar tu sesión. Por favor, cierra sesión y vuelve a intentarlo.",
+        },
+      ]);
       setIsLoading(false);
       setIsChatLocked(true);
       return;
@@ -200,55 +313,65 @@ export default function ChatPage() {
       const response = await handleMessageSubmit(messageContent, threadId, token);
       setThreadId(response.thread_id);
 
-      const assistantMessage: Message = { id: crypto.randomUUID(), role: 'assistant', content: response.answer };
-      setMessages(prev => [...prev, assistantMessage]);
+      const raw = String(response.answer || "");
+      const card = extractTicketCard(raw);
+      const assistantText = stripAnyCard(raw);
 
-      // ✅ Si el backend indica que se creó ticket, bloquea input y muestra botón + tarjeta
-      if (response.showContactSupport) {
-        setIsChatLocked(true);
+      // pinta el mensaje del asistente (sin la tarjeta dentro)
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: "assistant", content: assistantText || raw },
+      ]);
+
+      if (card) {
+        // ¡Tenemos tarjeta real desde el backend (BD)!
+        setGeneratedTicket(card);
         setShowNewChatButton(true);
-        setGeneratedTicket(buildTicketFromAnswer(response.answer, messageContent, session));
+        setIsChatLocked(true);
+        setIsLoading(false);
         return;
       }
 
-      // Si el bot no pudo responder (fallback), generamos ticket dummy
-      if (response.answered === false) {
-        setTimeout(() => generateTicket(messageContent), 1000);
+      // Fallback: intentar detectar el id y construir una tarjeta mínima
+      const idMatch =
+          raw.match(/ticket\s*#\s*(\d+)/i) || raw.match(/\*\*#\s*(\d+)\*\*/i);
+      if (idMatch?.[1]) {
+        const fallbackCard: TicketCard = {
+          id: `#${idMatch[1]}`,
+          subject: pickReasonableSubject(messageContent, [...messages, userMessage]),
+          type: "Incidencia",
+          user: session?.user?.name ?? "-",
+          company: "UNMSM",
+          service: "DATA SCIENCE",
+          analyst: "Soporte",
+          status: "Abierto",
+          date: new Date().toLocaleDateString("es-ES", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          }),
+        };
+        setGeneratedTicket(fallbackCard);
+        setShowNewChatButton(true);
+        setIsChatLocked(true);
       }
     } catch (error) {
       console.error("Error devuelto por handleMessageSubmit:", error);
-      const errorMessage: Message = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: "Lo siento, ha ocurrido un error. Voy a generar un ticket para que nuestro equipo te ayude."
-      };
-      setMessages(prev => [...prev, errorMessage]);
-      setTimeout(() => generateTicket(messageContent), 1000);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: "Lo siento, ha ocurrido un error inesperado al enviar el mensaje.",
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Fallback local (cuando answered === false o hubo error)
-  const generateTicket = (userQuery: string) => {
-    const ticket = {
-      id: `TCK-2025-${String(Math.floor(Math.random() * 90000) + 10000).padStart(5, '0')}`,
-      type: 'Incidencia',
-      user: '—',
-      company: '—',
-      analyst: 'Soporte',
-      subject: userQuery,
-      service: 'Data Science',
-      status: 'Abierto',
-      date: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
-    };
-    setGeneratedTicket(ticket);
-    setShowNewChatButton(true);
-    setIsChatLocked(true);
-  };
-
   const handleFormSubmit = async (formData: FormData) => {
-    const content = formData.get('message') as string;
+    const content = formData.get("message") as string;
     await submitMessage(content);
   };
 
@@ -275,8 +398,11 @@ export default function ChatPage() {
 
         <div className="flex-shrink-0 p-4 md:p-6 border-t bg-white relative">
           <div className="max-w-3xl mx-auto">
-            {/* 👇 el input se desactiva cuando isChatLocked = true */}
-            <ChatInput onSubmit={handleFormSubmit} isLoading={isLoading} isDisabled={isChatLocked} />
+            <ChatInput
+                onSubmit={handleFormSubmit}
+                isLoading={isLoading}
+                isDisabled={isChatLocked}
+            />
           </div>
         </div>
       </div>
