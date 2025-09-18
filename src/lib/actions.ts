@@ -84,30 +84,26 @@ export async function submitMessage(
   }
 }
 
-export async function getAnalystTickets(token: string, limit = 10, offset = 0) {
-  const baseUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-  if (!baseUrl) {
-    throw new Error("Falta NEXT_PUBLIC_BACKEND_API_URL en el .env.local del front");
-  }
+export async function getAnalystTickets(
+    token: string,
+    limit = 10,
+    offset = 0,
+    status?: string            // <- ya lo tienes en tu llamada
+) {
+    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL!;
+    const url = new URL(`${baseUrl}/api/analista/conversaciones`);
+    url.searchParams.set("limit", String(limit));
+    url.searchParams.set("offset", String(offset));
+    if (status && status !== "Todos") url.searchParams.set("status", status); // <- ESTA LÍNEA
 
-  const res = await fetch(
-      `${baseUrl}/api/analista/conversaciones?limit=${limit}&offset=${offset}`,
-      {
+    const res = await fetch(url.toString(), {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
-      }
-  );
-
-  if (!res.ok) {
-    throw new Error(`Error al listar conversaciones: ${res.status}`);
-  }
-
-  const data = await res.json();
-  data.items = (data.items || []).map((t: any) => ({
-    ...t,
-    status: toUiStatus(t.status),
-  }));
-  return data;
+    });
+    if (!res.ok) throw new Error(`Error al listar conversaciones: ${res.status}`);
+    const data = await res.json();
+    data.items = (data.items || []).map((t: any) => ({ ...t, status: toUiStatus(t.status) }));
+    return data;
 }
 
 export async function getAnalystTicketDetail(id_ticket: number | string, token: string) {

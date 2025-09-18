@@ -1,3 +1,4 @@
+// src/app/analyst/dashboard/page.tsx
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -56,10 +57,11 @@ export default function AnalystDashboardPage() {
     const [isLoading, setIsLoading] = useState(true);
 
     const [searchTerm, setSearchTerm] = useState("");
-    const [statusFilter, setStatusFilter] = useState<TicketStatus | "Todos">(
-        "Todos"
-    );
+    const [statusFilter, setStatusFilter] = useState<TicketStatus | "Todos">("Todos");
     const [currentPage, setCurrentPage] = useState(1);
+
+    // 🚨 IMPORTANTE: tu getAnalystTickets() debe aceptar (token, limit, offset, status?)
+    // y el backend debe soportar ?status=Abierto|En Atención|Cerrado|Rechazado|Todos.
 
     useEffect(() => {
         let active = true;
@@ -72,10 +74,18 @@ export default function AnalystDashboardPage() {
                 setIsLoading(true);
                 const page = currentPage - 1;
                 const offset = page * TICKETS_PER_PAGE;
-                const data = await getAnalystTickets(token, TICKETS_PER_PAGE, offset);
+
+                // pasamos el estado al backend (o "Todos" para no filtrar)
+                const data = await getAnalystTickets(
+                    token,
+                    TICKETS_PER_PAGE,
+                    offset,
+                    statusFilter
+                );
+
                 if (!active) return;
                 setTickets(data.items || []);
-                setTotal(data.total || 0);
+                setTotal(data.total || 0); // total viene del backend para ese estado
             } catch (e) {
                 console.error(e);
                 if (!active) return;
@@ -89,35 +99,40 @@ export default function AnalystDashboardPage() {
         return () => {
             active = false;
         };
-    }, [token, currentPage]);
+    }, [token, currentPage, statusFilter]);
 
+    // ✅ NUEVO: cuando NO hay búsqueda, la paginación/filtrado lo hace el backend
+    const serverDriven = searchTerm.trim() === "";
+
+    // ✅ NUEVO: si hay búsqueda, filtramos localmente lo que trajo esta página;
+    // si NO hay búsqueda, devolvemos tal cual lo que vino del backend.
     const filteredTickets = useMemo(() => {
-        return tickets
-            .filter(
-                (t) => statusFilter === "Todos" || (t.status as TicketStatus) === statusFilter
-            )
-            .filter((t) => {
-                const term = searchTerm.toLowerCase();
-                return (
-                    String(t.id_ticket).toLowerCase().includes(term) ||
-                    (t.subject || "").toLowerCase().includes(term) ||
-                    (t.user || "").toLowerCase().includes(term)
+        if (!serverDriven) {
+            const term = searchTerm.toLowerCase();
+            return tickets
+                .filter((t) => statusFilter === "Todos" || t.status === statusFilter)
+                .filter(
+                    (t) =>
+                        String(t.id_ticket).toLowerCase().includes(term) ||
+                        (t.subject || "").toLowerCase().includes(term) ||
+                        (t.user || "").toLowerCase().includes(term)
                 );
-            });
-    }, [tickets, statusFilter, searchTerm]);
+        }
+        return tickets;
+    }, [tickets, searchTerm, statusFilter, serverDriven]);
 
-    const totalPages = Math.max(
-        1,
-        Math.ceil(
-            (statusFilter === "Todos" && !searchTerm ? total : filteredTickets.length) /
-            TICKETS_PER_PAGE
-        )
-    );
+    // ✅ NUEVO: total de páginas
+    const totalPages = serverDriven
+        ? Math.max(1, Math.ceil(total / TICKETS_PER_PAGE))
+        : Math.max(1, Math.ceil(filteredTickets.length / TICKETS_PER_PAGE));
 
-    const paginatedTickets =
-        statusFilter === "Todos" && !searchTerm
-            ? tickets
-            : filteredTickets.slice(0, TICKETS_PER_PAGE);
+    // ✅ NUEVO: qué filas mostrar
+    const paginatedTickets = serverDriven
+        ? filteredTickets // ya viene paginado desde el backend
+        : filteredTickets.slice(
+            (currentPage - 1) * TICKETS_PER_PAGE,
+            currentPage * TICKETS_PER_PAGE
+        );
 
     const handlePrevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
     const handleNextPage = () =>
@@ -210,9 +225,7 @@ export default function AnalystDashboardPage() {
                                             {ticket.subject}
                                         </td>
                                         <td className="px-6 py-4 truncate">{ticket.user || "-"}</td>
-                                        <td className="px-6 py-4 truncate">
-                                            {ticket.service || "-"}
-                                        </td>
+                                        <td className="px-6 py-4 truncate">{ticket.service || "-"}</td>
                                         <td className="px-6 py-4">
                                             {ticket.status ? (
                                                 <TicketStatusBadge status={ticket.status as TicketStatus} />
