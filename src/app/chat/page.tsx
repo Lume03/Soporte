@@ -318,16 +318,22 @@ export default function ChatPage() {
             setThreadId(response.thread_id);
 
             const raw = String(response.answer || "");
+            
+            // DEBUG - Para ver qué está enviando el backend
+            console.log("=== RESPUESTA DEL BACKEND ===");
+            console.log(raw);
+            console.log("=============================");
+            
             const card = extractTicketCard(raw);
             const assistantText = stripAnyCard(raw);
 
-            // 1) Pinta el mensaje del asistente (sin la tarjeta incrustada)
+            // Mostrar el mensaje del asistente
             setMessages((prev) => [
                 ...prev,
                 { id: crypto.randomUUID(), role: "assistant", content: assistantText || raw },
             ]);
 
-            // 2) Si el backend mandó tarjeta real (BD) → mostrarla y bloquear input
+            // Si el backend mandó tarjeta real → mostrarla
             if (card) {
                 setGeneratedTicket(card);
                 setShowNewChatButton(true);
@@ -336,31 +342,87 @@ export default function ChatPage() {
                 return;
             }
 
-            // 3) Fallback SOLO si explícitamente dice que creó/generó el ticket
-            const created = /(he|se ha)\s+(generado|creado)\s+el\s+ticket/i.test(raw);
+            // Fallback mejorado: extraer datos del mensaje del bot
+            const ticketPatterns = [
+                /(he|se ha|ha sido)\s+(generado|creado|registrado)\s+(el\s+)?ticket/i,
+                /ticket\s+#?\d+\s+(generado|creado|registrado)/i,
+                /su\s+ticket\s+ha\s+sido/i,
+                /nuevo\s+ticket.*#\d+/i
+            ];
+
+            const created = ticketPatterns.some(pattern => pattern.test(raw));
+
             if (created) {
-                const idMatch =
-                    raw.match(/ticket\s*#\s*(\d+)/i) || raw.match(/\*\*#\s*(\d+)\*\*/i);
-                if (idMatch?.[1]) {
-                    const fallbackCard: TicketCard = {
-                        id: `#${idMatch[1]}`,
-                        subject: pickReasonableSubject(messageContent, [...messages, userMessage]),
-                        type: "Incidencia",
-                        user: session?.user?.name ?? "-",
-                        company: "UNMSM",
-                        service: "DATA SCIENCE",
-                        analyst: "Soporte",
-                        status: "Abierto",
-                        date: new Date().toLocaleDateString("es-ES", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                        }),
-                    };
-                    setGeneratedTicket(fallbackCard);
-                    setShowNewChatButton(true);
-                    setIsChatLocked(true);
+                // Extraer ID del ticket
+                const idMatch = 
+                    raw.match(/ticket\s*#?\s*(\d+)/i) || 
+                    raw.match(/\*\*#?\s*(\d+)\*\*/i) ||
+                    raw.match(/ID:\s*#?(\d+)/i) ||
+                    raw.match(/#(\d+)/);
+                
+                // Extraer otros datos del mensaje usando patrones
+                let extractedData: TicketCard = {
+                    id: idMatch?.[1] ? `#${idMatch[1]}` : "#000",
+                    subject: "",
+                    type: "",
+                    user: "",
+                    company: "",
+                    service: "",
+                    analyst: "",
+                    status: "",
+                    date: ""
+                };
+
+                // Extraer asunto (buscar después de "asunto:" o similar)
+                const subjectMatch = raw.match(/asunto:\s*([^\n,]+)/i) || 
+                                    raw.match(/solicitud:\s*([^\n,]+)/i) ||
+                                    raw.match(/problema:\s*([^\n,]+)/i);
+                if (subjectMatch?.[1]) {
+                    extractedData.subject = subjectMatch[1].trim();
+                } else {
+                    // Si no se encuentra, usar el mensaje del usuario
+                    extractedData.subject = pickReasonableSubject(messageContent, [...messages, userMessage]);
                 }
+
+                // Extraer tipo
+                const typeMatch = raw.match(/tipo:\s*([^\n,]+)/i) || 
+                                raw.match(/categoría:\s*([^\n,]+)/i);
+                extractedData.type = typeMatch?.[1]?.trim() || "Incidencia";
+
+                // Extraer servicio
+                const serviceMatch = raw.match(/servicio:\s*([^\n,]+)/i) || 
+                                    raw.match(/área:\s*([^\n,]+)/i) ||
+                                    raw.match(/departamento:\s*([^\n,]+)/i);
+                extractedData.service = serviceMatch?.[1]?.trim() || "Soporte General";
+
+                // Extraer nivel/prioridad
+                const levelMatch = raw.match(/nivel:\s*([^\n,]+)/i) || 
+                                raw.match(/prioridad:\s*([^\n,]+)/i);
+                const level = levelMatch?.[1]?.trim();
+
+                // Extraer estado
+                const statusMatch = raw.match(/estado:\s*([^\n,]+)/i);
+                extractedData.status = statusMatch?.[1]?.trim() || "Abierto";
+
+                // Extraer analista
+                const analystMatch = raw.match(/analista:\s*([^\n,]+)/i) ||
+                                    raw.match(/asignado a:\s*([^\n,]+)/i);
+                extractedData.analyst = analystMatch?.[1]?.trim() || "Por asignar";
+
+                // Usar datos del usuario de la sesión
+                extractedData.user = session?.user?.name || "Usuario";
+                extractedData.company = session?.user?.email?.split('@')[1]?.toUpperCase() || "UNMSM";
+                
+                // Fecha actual
+                extractedData.date = new Date().toLocaleDateString("es-ES", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                });
+
+                setGeneratedTicket(extractedData);
+                setShowNewChatButton(true);
+                setIsChatLocked(true);
             }
         } catch (error) {
             console.error("Error devuelto por handleMessageSubmit:", error);

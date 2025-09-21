@@ -114,3 +114,49 @@
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
   }
 }
+
+/* Estilos optimizados para tablas del chat */
+.markdown-content table {
+  table-layout: auto;
+  font-size: 11px;
+}
+
+.markdown-content th,
+.markdown-content td {
+  line-height: 1.4;
+}
+
+/* Hacer que el texto del asunto se ajuste */
+.markdown-content td {
+  max-width: 250px;
+  word-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+/* Colores alternados para las filas */
+.markdown-content tbody tr:nth-child(even) {
+  background-color: rgba(249, 250, 251, 0.5);
+}
+
+/* Para móviles - más compacto */
+@media (max-width: 768px) {
+  .markdown-content table {
+    font-size: 10px;
+  }
+  
+  .markdown-content th,
+  .markdown-content td {
+    padding: 4px 6px;
+  }
+  
+  .markdown-content td {
+    max-width: 150px;
+  }
+}
+
+/* Asegurar que el contenedor del mensaje no corte las tablas */
+.markdown-content {
+  overflow-x: visible;
+  width: 100%;
+}
