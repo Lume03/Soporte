@@ -10,9 +10,12 @@ import remarkGfm from 'remark-gfm';
 export function ChatMessage({ message }: { message: Message }) {
   const isUser = message.role === 'user';
 
+  // --- 1. AÑADIR esta línea para detectar la tabla ---
+  const containsTable = !isUser && message.content.includes('|---');
+
   return (
     <div className={cn(
-      'flex items-start gap-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500', 
+      'flex items-start gap-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500',
       isUser ? 'justify-end' : 'justify-start'
     )}>
       {!isUser && (
@@ -23,22 +26,30 @@ export function ChatMessage({ message }: { message: Message }) {
         </Avatar>
       )}
       <div
+        // --- 2. MODIFICAR esta sección de className ---
+        // (Este es el bloque que tú me pasaste)
         className={cn(
-          'max-w-[75%] rounded-2xl p-4 shadow-md overflow-hidden',
+          'rounded-2xl p-4 shadow-md', // Clases base
           isUser
-            ? 'bg-gradient-to-br from-blue-700 to-blue-500 text-white rounded-br-lg'
-            : 'bg-gradient-to-br from-white to-gray-100 text-gray-800 rounded-bl-lg border border-gray-100'
+            ? 'max-w-[75%] overflow-hidden bg-gradient-to-br from-blue-700 to-blue-500 text-white rounded-br-lg' // Usuario
+            : [ // Bot
+                'bg-gradient-to-br from-white to-gray-100 text-gray-800 rounded-bl-lg border border-gray-100',
+                containsTable
+                  ? 'max-w-[95%] overflow-x-auto' // <-- Si hay tabla
+                  : 'max-w-[75%] overflow-hidden'  // <-- Si NO hay tabla
+              ]
         )}
       >
         {isUser ? (
           <p className="whitespace-pre-wrap leading-relaxed text-sm">{message.content}</p>
         ) : (
           <div className="markdown-content">
-            <ReactMarkdown 
+            <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
-                // Tabla optimizada para verse completa
                 table: ({ children, ...props }) => (
+                  // --- 3. ASEGURAR que esta línea NO tenga 'overflow-x-auto' ---
+                  // El scroll ahora lo controla el div padre (paso 2)
                   <div className="my-3 -mx-2">
                     <table className="w-full border-collapse text-xs" {...props}>
                       {children}
@@ -61,24 +72,26 @@ export function ChatMessage({ message }: { message: Message }) {
                   </tr>
                 ),
                 th: ({ children, ...props }) => {
-                  // Determinar el ancho de columna basado en el contenido
-                  const content = String(children);
+                  const content = String(children).toLowerCase(); // Convertir a minúsculas para comparar
                   let className = "px-2 py-1.5 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider border border-gray-300 bg-blue-50/70";
                   
                   // Ajustar anchos según el encabezado
-                  if (content?.toLowerCase().includes('id')) {
-                    className += " w-[60px] max-w-[60px]";
-                  } else if (content?.toLowerCase().includes('asunto')) {
-                    className += " min-w-[180px]";
-                  } else if (content?.toLowerCase().includes('estado')) {
-                    className += " w-[75px]";
-                  } else if (content?.toLowerCase().includes('nivel')) {
-                    className += " w-[60px]";
-                  } else if (content?.toLowerCase().includes('tipo')) {
-                    className += " w-[80px]";
-                  } else if (content?.toLowerCase().includes('servicio')) {
-                    className += " w-[80px]";
+                  if (content.includes('id')) {
+                    className += " w-[60px] max-w-[60px] text-center";
+                  } else if (content.includes('asunto')) {
+                    className += " min-w-[180px] text-center";
+                  } else if (content.includes('estado')) {
+                    className += " w-[75px] text-center";
+                  } else if (content.includes('nivel')) {
+                    className += " w-[60px] text-center";
+                  } else if (content.includes('tipo')) {
+                    className += " w-[80px] text-center";
+                  } else if (content.includes('servicio')) {
+                    className += " w-[80px] text-center";
+                  } else if (content.includes('fecha')) { 
+                    className += " w-[90px] text-center";
                   }
+                  // Se han quitado las reglas para 'usuario' y 'empresa'
                   
                   return (
                     <th className={className} {...props}>
@@ -87,30 +100,29 @@ export function ChatMessage({ message }: { message: Message }) {
                   );
                 },
                 td: ({ children, ...props }) => {
-                  // Contenido de la celda
                   const content = String(children);
                   let className = "px-2 py-1.5 text-[11px] text-gray-700 border border-gray-200";
                   
-                  // Si parece ser un ID (número corto o #número)
-                  if (content && (content.match(/^#?\d{1,4}$/) || content.length < 5)) {
-                    className += " text-center font-medium";
-                  }
-                  // Si es un estado
-                  else if (['Aceptado', 'Pendiente', 'En proceso', 'Resuelto', 'Cerrado'].includes(content)) {
+                  const states = ['Aceptado', 'Pendiente', 'En proceso', 'Resuelto', 'Cerrado', 'En Atención', 'Abierto'];
+                  const levels = ['Bajo', 'Medio', 'Alto', 'Crítico'];
+
+                  if (states.includes(content)) {
                     className += " text-center";
-                    if (content === 'Aceptado') className += " text-green-600 font-medium";
+                    if (content === 'Aceptado' || content === 'Abierto' || content === 'Resuelto') className += " text-green-600 font-medium";
                     else if (content === 'Pendiente') className += " text-yellow-600 font-medium";
-                    else if (content === 'En proceso') className += " text-blue-600 font-medium";
+                    else if (content === 'En proceso' || content === 'En Atención') className += " text-blue-600 font-medium";
+                    else if (content === 'Cerrado') className += " text-gray-500 font-medium";
                   }
-                  // Si es un nivel
-                  else if (['Bajo', 'Medio', 'Alto', 'Crítico'].includes(content)) {
+                  else if (levels.includes(content)) {
                     className += " text-center";
                     if (content === 'Bajo') className += " text-gray-500";
                     else if (content === 'Medio') className += " text-yellow-600";
                     else if (content === 'Alto') className += " text-orange-600";
                     else if (content === 'Crítico') className += " text-red-600 font-semibold";
                   }
-                  // Para el asunto o textos largos
+                  else if (content && (content.match(/^#?\d{1,4}$/) || content.length < 5)) {
+                    className += " text-center font-medium";
+                  }
                   else {
                     className += " break-words";
                   }
@@ -121,7 +133,7 @@ export function ChatMessage({ message }: { message: Message }) {
                     </td>
                   );
                 },
-                // Otros elementos markdown
+                // ... (resto de componentes p, ul, ol, etc. sin cambios) ...
                 p: ({ children, ...props }) => (
                   <p className="mb-2 last:mb-0 leading-relaxed text-sm" {...props}>
                     {children}
@@ -186,9 +198,9 @@ export function ChatMessage({ message }: { message: Message }) {
                   <hr className="my-3 border-gray-200" />
                 ),
                 a: ({ children, href, ...props }) => (
-                  <a 
-                    href={href} 
-                    target="_blank" 
+                  <a
+                    href={href}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-500 hover:text-blue-600 underline"
                     {...props}
@@ -213,4 +225,3 @@ export function ChatMessage({ message }: { message: Message }) {
     </div>
   );
 }
-

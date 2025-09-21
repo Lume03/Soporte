@@ -17,17 +17,13 @@ import {
     ClipboardList,
     FileText,
     CircleDot,
+    AlertCircle,
+    Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { submitMessage as handleMessageSubmit } from "@/lib/actions";
 
-type TicketDetailItem = {
-    icon: React.ElementType;
-    label: string;
-    value: string;
-    color?: string;
-};
-
+// Estructura del ticket (solo para la detección)
 type TicketCard = {
     id: string;
     subject: string;
@@ -35,9 +31,10 @@ type TicketCard = {
     user?: string;
     company?: string;
     service?: string;
-    analyst?: string;
+    level?: string;
     status?: string;
     date?: string;
+    responseTime?: string;
 };
 
 /* ------------------------ helpers de extracción ------------------------ */
@@ -49,142 +46,131 @@ function htmlUnescape(s: string) {
     return el.value;
 }
 
-/** Extrae SOLO tarjetas de creación/detalle: <card type="ticket_detail|ticket_created">{JSON}</card> */
+/** * Parsea la tabla Markdown del backend y extrae los datos del ticket
+ * Esta versión es más robusta: lee las cabeceras para encontrar los datos,
+ * sin importar el orden o la cantidad de columnas.
+ */
+function parseTicketFromMarkdownTable(text: string): TicketCard | null {
+    try {
+        const lines = text.split('\n');
+        let headerLine: string | null = null;
+        let dataLine: string | null = null;
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (line.includes('| ID') && line.includes('| Asunto')) {
+                headerLine = line;
+                // Asumir que la línea de datos es la que sigue al separador '---'
+                if (lines[i + 1] && lines[i + 1].includes('---')) {
+                    dataLine = lines[i + 2];
+                }
+                break;
+            }
+        }
+
+        if (!headerLine || !dataLine) {
+            console.log("No se encontró cabecera o línea de datos en la tabla.");
+            return null;
+        }
+
+        // Mapear cabeceras a sus índices
+        const headers = headerLine.split('|').map(h => h.trim().toLowerCase().replace(/ /g, '_').replace('ó', 'o')); // normalizar cabeceras
+        const cells = dataLine.split('|').map(c => c.trim());
+        
+        // Corregir el índice si hay una celda vacía al principio
+        const headerStartIndex = headers.indexOf('id') !== -1 ? headers.indexOf('id') : 1;
+        const cellStartIndex = cells[0] === '' ? 1 : 0;
+
+        const data: { [key: string]: string } = {};
+        headers.slice(headerStartIndex).forEach((header, index) => {
+            if (header) {
+                data[header] = cells[index + cellStartIndex];
+            }
+        });
+
+        // Construir el ticket con los datos encontrados
+        const ticket: TicketCard = {
+            id: data['id'] || "#000",
+            subject: data['asunto'] || "Solicitud de soporte",
+            type: data['tipo'] || "Incidencia",
+            user: data['usuario'] || "-",
+            company: data['empresa'] || "-",
+            service: data['servicio'] || "-",
+            level: data['nivel'] || "Medio",
+            status: data['estado'] || "Abierto",
+            date: data['fecha_de_creacion'] || data['fecha'] || new Date().toLocaleDateString("es-ES"),
+            responseTime: data['tiempo_de_respuesta'] || "24 horas"
+        };
+        
+        console.log("Ticket parseado:", ticket);
+        return ticket;
+
+    } catch (error) {
+        console.error("Error parseando tabla de ticket:", error);
+        return null;
+    }
+}
+
+
+/** * Verifica si el mensaje del bot indica que se creó un ticket.
+ * Devuelve un objeto Ticket si se detecta, o null si no.
+ */
 function extractTicketCard(answer: string): TicketCard | null {
     if (!answer) return null;
     const text = htmlUnescape(answer);
 
-    // Busca ticket_detail o ticket_created (no aceptamos cualquier <card>)
-    const m =
-        text.match(
-            /<card\b[^>]*type\s*=\s*(['"])(ticket_detail|ticket_created)\1[^>]*>([\s\S]*?)<\/card>/i
-        );
-
-    if (!m) return null;
-    const body = m[3];
-
-    // Intento 1: parseo directo
-    try {
-        return JSON.parse(body);
-    } catch (_) {
-        // Intento 2: buscar el primer bloque {...}
-        const j = body.match(/{[\s\S]*}/);
-        if (!j) return null;
-        try {
-            return JSON.parse(j[0]);
-        } catch {
-            // Intento 3: normalizar comillas simples
-            try {
-                const fixed = j[0]
-                    .replace(/(['"])?([a-zA-Z0-9_]+)\1\s*:/g, '"$2":')
-                    .replace(/'/g, '"');
-                return JSON.parse(fixed);
-            } catch {
-                return null;
-            }
-        }
-    }
-}
-
-/** Elimina cualquier bloque <card>…</card> (para mostrar limpio en chat) */
-function stripAnyCard(answer: string) {
-    return htmlUnescape(answer).replace(/<card\b[^>]*>[\s\S]*?<\/card>/gi, "").trim();
-}
-
-/** Toma un asunto razonable desde los últimos mensajes del usuario (evita 'si/ok') */
-function pickReasonableSubject(lastUserMessage: string, messages: Message[]): string {
-    const CONFIRM = new Set([
-        "si",
-        "sí",
-        "ok",
-        "okay",
-        "vale",
-        "dale",
-        "ya",
-        "listo",
-        "sip",
-        "claro",
-        "de acuerdo",
-        "correcto",
-    ]);
-
-    // buscar desde el final el último mensaje de usuario no-confirmación
-    for (let i = messages.length - 1; i >= 0; i--) {
-        const m = messages[i];
-        if (m.role === "user") {
-            const t = (m.content || "").trim().toLowerCase();
-            if (t && !CONFIRM.has(t) && t.length > 3) {
-                return m.content;
-            }
-        }
-    }
-    return lastUserMessage || "Solicitud de soporte";
-}
-
-/* ------------------------ UI: card generado ------------------------ */
-
-function GeneratedTicketCard({ ticket }: { ticket: TicketCard }) {
-    const details: TicketDetailItem[] = [
-        { icon: ClipboardList, label: "Tipo", value: ticket.type ?? "-" },
-        { icon: User, label: "Usuario", value: ticket.user ?? "-" },
-        { icon: Building2, label: "Empresa", value: ticket.company ?? "-" },
-        { icon: Briefcase, label: "Servicio", value: ticket.service ?? "-" },
-        { icon: UserCog, label: "Analista", value: ticket.analyst ?? "-" },
-        { icon: CircleDot, label: "Estado", value: ticket.status ?? "Abierto" },
-        { icon: CalendarDays, label: "Fecha", value: ticket.date ?? "-" },
-    ];
-
-    return (
-        <div className="bg-white rounded-xl p-8 shadow-lg border border-gray-100 max-w-2xl mx-auto my-8 animate-in fade-in-0 zoom-in-95 duration-500">
-            <div className="text-center mb-6">
-                <div className="inline-block bg-green-100 p-3 rounded-full mb-4">
-                    <CheckCircle className="h-8 w-8 text-green-600" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-900">Ticket de Soporte Generado</h2>
-                <p className="text-gray-500 mt-1">Nuestro equipo lo revisará a la brevedad.</p>
-            </div>
-
-            <div className="border-t border-gray-200 pt-6 space-y-4">
-                <div className="flex items-start gap-3">
-                    <TicketIcon className="h-5 w-5 text-gray-400 mt-1 flex-shrink-0" />
-                    <div>
-                        <p className="text-xs text-gray-500">Ticket ID</p>
-                        <p className="text-sm font-semibold text-purple-600">{ticket.id}</p>
-                    </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                    <FileText className="h-5 w-5 text-gray-400 mt-1 flex-shrink-0" />
-                    <div>
-                        <p className="text-xs text-gray-500">Asunto</p>
-                        <p className="text-sm font-medium text-gray-800">{ticket.subject}</p>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 pt-4 border-t mt-4">
-                    {details.map((item) => (
-                        <div key={item.label} className="flex items-start gap-3">
-                            <item.icon className="h-5 w-5 text-gray-400 mt-1 flex-shrink-0" />
-                            <div>
-                                <p className="text-xs text-gray-500">{item.label}</p>
-                                <p className={`text-sm font-medium ${item.color || "text-gray-800"}`}>
-                                    {item.value}
-                                </p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
+    // Método 1: Buscar formato <card type="ticket_created">
+    const cardMatch = text.match(
+        /<card\b[^>]*type\s*=\s*(['"])(ticket_detail|ticket_created)\1[^>]*>([\s\S]*?)<\/card>/i
     );
+
+    if (cardMatch) {
+        try {
+            const body = cardMatch[3];
+            const data = JSON.parse(body);
+            console.log("Ticket extraído de <card> JSON:", data);
+            return { id: data.id || "card-ticket", subject: data.subject || "Ticket" }; // Devolver algo simple
+        } catch (e) {
+            console.error("Error parseando card JSON:", e);
+        }
+    }
+
+    // Método 2: DETECCIÓN MEJORADA - Más flexible con el lenguaje del agente
+    const creationPatterns = [
+        /he\s+(generado|creado|registrado)\s+(el\s+)?ticket/i,
+        /ticket.*ha\s+sido\s+(generado|creado|registrado)/i,
+        /se\s+ha\s+(generado|creado|registrado).+ticket/i,
+        /ticket\s+#?\d+.*(generado|creado|registrado)/i,
+        /generad[oa]\s+exitosamente/i,
+        /cread[oa]\s+exitosamente/i,
+        /su\s+solicitud\s+ha\s+sido\s+registrada/i,
+        /he\s+procedido\s+a\s+generar/i
+    ];
+    
+    const isCreation = creationPatterns.some(pattern => pattern.test(text));
+    const hasTable = text.includes('| ID') && text.includes('| Asunto');
+    
+    if (isCreation && hasTable) {
+        console.log("Ticket CREADO detectado con tabla, parseando...");
+        return parseTicketFromMarkdownTable(text); // Devuelve el ticket para confirmar la creación
+    }
+
+    if (isCreation) {
+        console.log("Ticket mencionado pero sin datos completos");
+        return { id: "unknown", subject: "Ticket" }; // Devolver algo simple para bloquear el chat
+    }
+
+    return null;
 }
+
+// --- SE ELIMINARON LAS FUNCIONES 'stripTicketData' y 'GeneratedTicketCard' ---
 
 /* ------------------------ Home page ------------------------ */
 
 function HomePage({
-                      onSubmitMessage,
-                      isLoading,
-                  }: {
+    onSubmitMessage,
+    isLoading,
+}: {
     onSubmitMessage: (message: string) => void;
     isLoading: boolean;
 }) {
@@ -209,9 +195,9 @@ function HomePage({
                     />
                 </div>
                 <h1 className="text-3xl mb-6 leading-relaxed">
-          <span className="bg-gradient-to-r from-[#3498DB] via-[#2980B9] to-[#1ABC9C] bg-clip-text text-transparent font-bold">
-            ¡Hola! Soy el Asistente Virtual de Analytics.
-          </span>
+                    <span className="bg-gradient-to-r from-[#3498DB] via-[#2980B9] to-[#1ABC9C] bg-clip-text text-transparent font-bold">
+                        ¡Hola! Soy el Asistente Virtual de Analytics.
+                    </span>
                 </h1>
                 <p className="text-gray-600 mb-12 text-lg leading-relaxed max-w-2xl mx-auto">
                     Estoy aquí para ayudarte a resolver una incidencia o a explorar el servicio perfecto para tu próximo proyecto. ¿Cómo te puedo ayudar hoy?
@@ -263,7 +249,7 @@ export default function ChatPage() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [showHomePage, setShowHomePage] = useState(true);
-    const [generatedTicket, setGeneratedTicket] = useState<TicketCard | null>(null);
+    // const [generatedTicket, setGeneratedTicket] = useState<TicketCard | null>(null); // <-- ELIMINADO
     const [showNewChatButton, setShowNewChatButton] = useState(false);
     const [isChatLocked, setIsChatLocked] = useState(false);
     const [threadId, setThreadId] = useState<string | null>(null);
@@ -271,7 +257,7 @@ export default function ChatPage() {
     const resetToHome = () => {
         setShowHomePage(true);
         setMessages([]);
-        setGeneratedTicket(null);
+        // setGeneratedTicket(null); // <-- ELIMINADO
         setShowNewChatButton(false);
         setIsChatLocked(false);
         setIsLoading(false);
@@ -304,8 +290,7 @@ export default function ChatPage() {
                 {
                     id: crypto.randomUUID(),
                     role: "assistant",
-                    content:
-                        "Error de autenticación. No pude verificar tu sesión. Por favor, cierra sesión y vuelve a intentarlo.",
+                    content: "Error de autenticación. No pude verificar tu sesión. Por favor, cierra sesión y vuelve a intentarlo.",
                 },
             ]);
             setIsLoading(false);
@@ -319,113 +304,40 @@ export default function ChatPage() {
 
             const raw = String(response.answer || "");
             
-            // DEBUG - Para ver qué está enviando el backend
-            console.log("=== RESPUESTA DEL BACKEND ===");
+            console.log("=== RESPUESTA COMPLETA DEL BACKEND ===");
             console.log(raw);
-            console.log("=============================");
+            console.log("=====================================");
             
-            const card = extractTicketCard(raw);
-            const assistantText = stripAnyCard(raw);
+            // --- LÓGICA SIMPLIFICADA ---
 
-            // Mostrar el mensaje del asistente
+            // 1. Quitar <card> (que ya no usamos) pero dejar todo lo demás (incluida la tabla)
+            const assistantText = htmlUnescape(raw)
+                .replace(/<card\b[^>]*>[\s\S]*?<\/card>/gi, "")
+                .trim() || raw;
+
+            // 2. Mostrar el mensaje del asistente (CON tabla)
             setMessages((prev) => [
                 ...prev,
-                { id: crypto.randomUUID(), role: "assistant", content: assistantText || raw },
+                { 
+                    id: crypto.randomUUID(), 
+                    role: "assistant", 
+                    content: assistantText 
+                },
             ]);
 
-            // Si el backend mandó tarjeta real → mostrarla
-            if (card) {
-                setGeneratedTicket(card);
-                setShowNewChatButton(true);
-                setIsChatLocked(true);
-                setIsLoading(false);
-                return;
-            }
+            // 3. Detectar si fue una creación de ticket
+            const ticketWasCreated = extractTicketCard(raw);
 
-            // Fallback mejorado: extraer datos del mensaje del bot
-            const ticketPatterns = [
-                /(he|se ha|ha sido)\s+(generado|creado|registrado)\s+(el\s+)?ticket/i,
-                /ticket\s+#?\d+\s+(generado|creado|registrado)/i,
-                /su\s+ticket\s+ha\s+sido/i,
-                /nuevo\s+ticket.*#\d+/i
-            ];
-
-            const created = ticketPatterns.some(pattern => pattern.test(raw));
-
-            if (created) {
-                // Extraer ID del ticket
-                const idMatch = 
-                    raw.match(/ticket\s*#?\s*(\d+)/i) || 
-                    raw.match(/\*\*#?\s*(\d+)\*\*/i) ||
-                    raw.match(/ID:\s*#?(\d+)/i) ||
-                    raw.match(/#(\d+)/);
-                
-                // Extraer otros datos del mensaje usando patrones
-                let extractedData: TicketCard = {
-                    id: idMatch?.[1] ? `#${idMatch[1]}` : "#000",
-                    subject: "",
-                    type: "",
-                    user: "",
-                    company: "",
-                    service: "",
-                    analyst: "",
-                    status: "",
-                    date: ""
-                };
-
-                // Extraer asunto (buscar después de "asunto:" o similar)
-                const subjectMatch = raw.match(/asunto:\s*([^\n,]+)/i) || 
-                                    raw.match(/solicitud:\s*([^\n,]+)/i) ||
-                                    raw.match(/problema:\s*([^\n,]+)/i);
-                if (subjectMatch?.[1]) {
-                    extractedData.subject = subjectMatch[1].trim();
-                } else {
-                    // Si no se encuentra, usar el mensaje del usuario
-                    extractedData.subject = pickReasonableSubject(messageContent, [...messages, userMessage]);
-                }
-
-                // Extraer tipo
-                const typeMatch = raw.match(/tipo:\s*([^\n,]+)/i) || 
-                                raw.match(/categoría:\s*([^\n,]+)/i);
-                extractedData.type = typeMatch?.[1]?.trim() || "Incidencia";
-
-                // Extraer servicio
-                const serviceMatch = raw.match(/servicio:\s*([^\n,]+)/i) || 
-                                    raw.match(/área:\s*([^\n,]+)/i) ||
-                                    raw.match(/departamento:\s*([^\n,]+)/i);
-                extractedData.service = serviceMatch?.[1]?.trim() || "Soporte General";
-
-                // Extraer nivel/prioridad
-                const levelMatch = raw.match(/nivel:\s*([^\n,]+)/i) || 
-                                raw.match(/prioridad:\s*([^\n,]+)/i);
-                const level = levelMatch?.[1]?.trim();
-
-                // Extraer estado
-                const statusMatch = raw.match(/estado:\s*([^\n,]+)/i);
-                extractedData.status = statusMatch?.[1]?.trim() || "Abierto";
-
-                // Extraer analista
-                const analystMatch = raw.match(/analista:\s*([^\n,]+)/i) ||
-                                    raw.match(/asignado a:\s*([^\n,]+)/i);
-                extractedData.analyst = analystMatch?.[1]?.trim() || "Por asignar";
-
-                // Usar datos del usuario de la sesión
-                extractedData.user = session?.user?.name || "Usuario";
-                extractedData.company = session?.user?.email?.split('@')[1]?.toUpperCase() || "UNMSM";
-                
-                // Fecha actual
-                extractedData.date = new Date().toLocaleDateString("es-ES", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                });
-
-                setGeneratedTicket(extractedData);
+            if (ticketWasCreated) {
+                // SÍ se creó un ticket, así que bloqueamos el chat
+                console.log("=== TICKET CREADO - Bloqueando chat ===");
                 setShowNewChatButton(true);
                 setIsChatLocked(true);
             }
+            // --- FIN LÓGICA SIMPLIFICADA ---
+
         } catch (error) {
-            console.error("Error devuelto por handleMessageSubmit:", error);
+            console.error("Error en submitMessage:", error);
             setMessages((prev) => [
                 ...prev,
                 {
@@ -452,7 +364,9 @@ export default function ChatPage() {
         <div className="flex flex-col h-[calc(100vh-88px)]">
             <div className="flex-1 overflow-y-auto p-4 md:p-6">
                 <ChatArea messages={messages} isLoading={isLoading} />
-                {generatedTicket && <GeneratedTicketCard ticket={generatedTicket} />}
+                
+                {/* --- SE ELIMINÓ LA LÍNEA DE 'generatedTicket' --- */}
+                
                 {showNewChatButton && (
                     <div className="text-center my-8">
                         <div className="text-gray-600 text-sm mb-4 flex items-center justify-center gap-2 max-w-md mx-auto">

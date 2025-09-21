@@ -160,3 +160,9 @@
   overflow-x: visible;
   width: 100%;
 }
+
+.markdown-content table tr > :nth-child(4),
+.markdown-content table tr > :nth-child(5), 
+.markdown-content table tr > :nth-child(10) {
+  display: none;
+}
