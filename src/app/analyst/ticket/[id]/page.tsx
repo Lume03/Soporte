@@ -162,12 +162,12 @@ export default function TicketDetailPage() {
   }
 
   return (
-      <div className="min-h-screen bg-[#F7FAFC]">
+      <div className="h-screen bg-[#F7FAFC] flex flex-col">
         <AnalystHeader />
-        <main className="p-8">
-          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+        <main className="p-8 flex-1 min-h-0">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch h-full">
             {/* Izquierda: detalles + gestión */}
-            <div className="lg:col-span-4 bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col">
+            <div className="lg:col-span-4 bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col overflow-y-auto">
               <div className="flex-grow">
                 <Link
                     href="/analyst/dashboard"
@@ -280,11 +280,11 @@ export default function TicketDetailPage() {
             </div>
 
             {/* Derecha: conversación */}
-            <div className="lg:col-span-8 bg-white p-6 rounded-xl shadow-md border border-gray-100">
+            <div className="lg:col-span-8 bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col min-h-0">
               <h3 className="text-lg font-semibold text-gray-800 mb-6 border-b pb-3">
                 Conversación
               </h3>
-              <div className="space-y-6">
+              <div className="space-y-6 flex-1 overflow-y-auto pr-2">
                 {conversation.map((message, index) => (
                   <div
                     key={index}
