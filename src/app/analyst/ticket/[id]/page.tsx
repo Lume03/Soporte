@@ -5,11 +5,17 @@ import { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Bot, User, ArrowLeft } from "lucide-react";
+import { Bot, User, ArrowLeft, FileWarning, Send, Lock } from "lucide-react";
 import { AnalystHeader } from "@/components/analyst/analyst-header";
 import { getAnalystTicketDetail, updateAnalystTicketStatus } from "@/lib/actions";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Button } from "@/components/ui/button";// <-- AÑADIR
+
+import { Label } from "@/components/ui/label";
+
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast"
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type TicketStatus = "Abierto" | "En Atención" | "Cerrado" | "Rechazado";
@@ -26,7 +32,8 @@ function DetailCard({ label, value }: { label: string; value: string }) {
 export default function TicketDetailPage() {
   const { data: session } = useSession();
   const token = (session as any)?.backendAccessToken as string | undefined;
-
+  const { toast } = useToast(); 
+ 
   const params = useParams<{ id: string }>();
   const id = params?.id;
 
@@ -35,6 +42,11 @@ export default function TicketDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
+  const [showEscalateModal, setShowEscalateModal] = useState(false);
+ 
+  const [escalateReason, setEscalateReason] = useState("");
+  const [escalateError, setEscalateError] = useState<string | null>(null);
+  const [isEscalating, setIsEscalating] = useState(false);
 
   const [ticket, setTicket] = useState<{
     id_ticket: number;
@@ -46,6 +58,7 @@ export default function TicketDetailPage() {
     email?: string;
     date?: string;
     status?: TicketStatus;
+    last_update?: string;
   } | null>(null);
 
   const [conversation, setConversation] = useState<ChatMessage[]>([]);
@@ -56,9 +69,25 @@ export default function TicketDetailPage() {
   const [description, setDescription] = useState("");
 
   const requiresDescription = useMemo(
-      () => selectedStatus === "Cerrado",
-      [selectedStatus]
+      () => selectedStatus === "Cerrado" || selectedStatus === "Rechazado",
+    [selectedStatus]
   );
+
+  const isTerminalStatus = useMemo(
+      () => currentStatus === "Cerrado" || currentStatus === "Rechazado",
+      [currentStatus]
+  );
+
+  const statusOptions = useMemo(() => {
+    if (currentStatus === "Abierto") {
+      return ["Abierto", "En Atención", "Cerrado", "Rechazado"];
+    }
+    if (currentStatus === "En Atención") {
+      return ["En Atención", "Cerrado", "Rechazado"];
+    }
+    // Si es Cerrado o Rechazado, solo muestra la opción actual
+    return [currentStatus];
+  }, [currentStatus]);
 
   useEffect(() => {
     if (!token || !id) return;
@@ -86,6 +115,7 @@ export default function TicketDetailPage() {
           email: data.email,
           date: data.date,
           status: s,
+          last_update: data.last_update,
         });
         setCurrentStatus(initial);
         setSelectedStatus(initial);
@@ -135,6 +165,26 @@ export default function TicketDetailPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleConfirmEscalate = async () => {
+    setEscalateError(null);
+    setIsEscalating(true); // Simula que está "cargando"
+
+    // Simula una pequeña espera para que se vea profesional
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // En lugar de llamar al backend, mostramos un Toast
+    toast({
+      title: "Función en Desarrollo",
+      description: "El endpoint del backend para derivar aún no está listo.",
+      variant: "destructive", // O "default" si prefieres
+    });
+
+    console.warn("Funcionalidad de derivar no conectada al backend.");
+
+    setIsEscalating(false);
+    setShowEscalateModal(false); // Cierra el modal
   };
 
   if (loading) {
@@ -187,15 +237,16 @@ export default function TicketDetailPage() {
                 <h3 className="text-sm font-semibold text-gray-500 mb-3 border-b pb-2">
                   Detalles del Ticket
                 </h3>
-                <div className="grid grid-cols-2 gap-4 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                   <DetailCard label="Tipo" value={ticket.type || "-"} />
                   <DetailCard label="Usuario" value={ticket.user || "-"} />
                   <DetailCard label="Empresa" value={ticket.company || "-"} />
                   <DetailCard label="Servicio" value={ticket.service || "-"} />
-                  <div className="col-span-2">
+                  <div className="md:col-span-2">
                     <DetailCard label="Correo" value={ticket.email || "-"} />
                   </div>
                   <DetailCard label="Fecha" value={ticket.date || "-"} />
+                  <DetailCard label="Última Actualización" value={ticket.last_update || "-"} />
                 </div>
 
                 {/* Gestión */}
@@ -203,6 +254,15 @@ export default function TicketDetailPage() {
                   <h3 className="text-sm font-semibold text-gray-500 mb-3 border-b pb-2">
                     Gestión del Ticket
                   </h3>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowEscalateModal(true)}
+                    className="w-full flex justify-center items-center gap-2 bg-gradient-to-r from-cyan-500 to-green-500 text-white py-2.5 rounded-lg hover:from-cyan-600 hover:to-green-600 transition-all font-semibold shadow-md hover:shadow-lg disabled:opacity-60"
+                  >
+                    <Send className="w-4 h-4" />
+                    Derivar Ticket
+                  </button>
 
                   <div className="flex items-center justify-between gap-4">
                     <label className="block text-sm font-medium text-gray-700 whitespace-nowrap">
@@ -217,23 +277,33 @@ export default function TicketDetailPage() {
 
                   <div className="flex items-center justify-between gap-4">
                     <label
-                        htmlFor="status"
-                        className="block text-sm font-medium text-gray-700 whitespace-nowrap"
-                    >
-                      CAMBIAR A
-                    </label>
-                    <select
-                        id="status"
-                        name="status"
-                        value={selectedStatus}
-                        onChange={(e) => onChangeStatus(e.target.value)}
-                        className="w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm"
-                    >
-                      <option>Abierto</option>
-                      <option>En Atención</option>
-                      <option>Cerrado</option>
-                      <option>Rechazado</option>
-                    </select>
+                          htmlFor="status"
+                          className={`block text-sm font-medium whitespace-nowrap ${
+                            isTerminalStatus ? "text-gray-400" : "text-gray-700"
+                          }`}
+                      >
+                        CAMBIAR A
+                      </label>
+                      <div className="relative w-full">
+                        <select
+                            id="status"
+                            name="status"
+                            value={selectedStatus}
+                            onChange={(e) => onChangeStatus(e.target.value)}
+                            disabled={isTerminalStatus} // <-- LÓGICA DE BLOQUEO
+                            className="w-full appearance-none pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                        >
+                          {/* Mapeamos las opciones dinámicamente */}
+                          {statusOptions.map((status) => (
+                            <option key={status} value={status}>
+                              {status}
+                            </option>
+                          ))}
+                        </select>
+                        {isTerminalStatus && (
+                          <Lock className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                        )}
+                      </div>
                   </div>
 
                   <div className="min-h-[105px]">
@@ -477,6 +547,81 @@ export default function TicketDetailPage() {
             </div>
           </div>
         </main>
+        
+        {showEscalateModal && (
+          <div
+            // Overlay (fondo oscuro)
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in-0"
+            onClick={() => setShowEscalateModal(false)}
+          >
+            <div
+              // Contenedor del Modal
+              className="relative w-full max-w-md p-6 bg-white rounded-2xl shadow-xl animate-in zoom-in-95"
+              onClick={(e) => e.stopPropagation()} // Evita que el clic en el modal cierre el overlay
+            >
+              {/* Icono Superior (Azul) */}
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
+                <Send className="h-6 w-6 text-blue-600" />
+              </div>
+
+              {/* Contenido */}
+              <div className="mt-4 text-center">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Derivar Ticket
+                </h3>
+                <p className="mt-2 text-sm text-gray-500">
+                  Proporcione un motivo claro para la derivación.
+                </p>
+              </div>
+
+              {/* Formulario (Simplificado) */}
+              <div className="grid gap-4 py-6">
+
+                {/* Campo de Motivo (ahora ocupa todo el espacio) */}
+                <div className="grid gap-2">
+                  <Label htmlFor="escalate-reason" className="text-sm font-medium">
+                    Motivo de la derivación
+                  </Label>
+                  <Textarea
+                    id="escalate-reason"
+                    value={escalateReason}
+                    onChange={(e) => setEscalateReason(e.target.value)}
+                    className="min-h-[120px] focus:ring-blue-500"
+                    placeholder="Escriba el motivo aquí..."
+                  />
+                </div>
+
+                {/* Error */}
+                {escalateError && (
+                  <div className="flex items-center gap-2 text-sm text-red-600 p-3 bg-red-50 rounded-lg border border-red-200">
+                    <FileWarning className="w-4 h-4 flex-shrink-0" />
+                    <p>{escalateError}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Botones de Acción */}
+              <div className="flex flex-col-reverse sm:flex-row sm:gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowEscalateModal(false)}
+                  className="w-full sm:w-1/2 mt-2 sm:mt-0"
+                >
+                  Cancelar
+                </Button>
+
+                {/* Botón de Confirmar (Degradado Azul) */}
+                <Button
+                  onClick={handleConfirmEscalate}
+                  disabled={isEscalating}
+                  className="w-full sm:w-1/2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white"
+                >
+                  {isEscalating ? "Derivando…" : "Confirmar Derivación"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
   );
 }
