@@ -150,15 +150,22 @@ export default function TicketDetailPage() {
 
     try {
       setSaving(true);
-      await updateAnalystTicketStatus(
+      const updatedTicket = await updateAnalystTicketStatus(
           ticket.id_ticket,
           selectedStatus,
           description.trim(),
           token
       );
+      
       setSaveOk(true);
       setCurrentStatus(selectedStatus);
-      setTicket({ ...ticket, status: selectedStatus });
+      
+      // Actualizar el ticket con los nuevos datos, incluyendo last_update
+      setTicket({ 
+        ...ticket, 
+        status: selectedStatus,
+        last_update: updatedTicket.last_update // <-- LÍNEA AGREGADA
+      });
     } catch (e: any) {
       console.error(e);
       setSaveError(e?.message || "Error al actualizar el estado.");

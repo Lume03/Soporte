@@ -1,5 +1,6 @@
 // src/lib/actions.ts
 "use server";
+import { formatDateTime } from './dateUtils';
 
 export interface AgentResponse {
   answer: string;
@@ -122,7 +123,7 @@ export async function getAnalystTicketDetail(id_ticket: number | string, token: 
   }
 
   const data = await res.json();
-  return { ...data, status: toUiStatus(data.status) };
+  return { ...data, status: toUiStatus(data.status), last_update: formatDateTime(data.updated_at) };
 }
 
 // NUEVO: actualizar estado (y descripción si es Cerrado)
@@ -156,5 +157,11 @@ export async function updateAnalystTicketStatus(
     throw new Error(msg);
   }
 
-  return res.json(); // { ok: true, status: "..."}
+  const data = await res.json();
+  
+  return { 
+    ...data, 
+    status: toUiStatus(data.status),
+    last_update: formatDateTime(data.updated_at)  // <-- LÍNEA AGREGADA
+  } // { ok: true, status: "..."}
 }
