@@ -7,7 +7,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Bot, User, ArrowLeft, FileWarning, Send, Lock } from "lucide-react";
 import { AnalystHeader } from "@/components/analyst/analyst-header";
-import { getAnalystTicketDetail, updateAnalystTicketStatus } from "@/lib/actions";
+import { getAnalystTicketDetail, updateAnalystTicketStatus, escalateTicket } from "@/lib/actions";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from "@/components/ui/button";// <-- AÑADIR
@@ -176,22 +176,74 @@ export default function TicketDetailPage() {
 
   const handleConfirmEscalate = async () => {
     setEscalateError(null);
-    setIsEscalating(true); // Simula que está "cargando"
 
-    // Simula una pequeña espera para que se vea profesional
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // =================== INICIO DE LA CORRECCIÓN ===================
+    //
+    // Añadimos esta comprobación.
+    // Esto soluciona ambos errores:
+    // 1. Asegura que `ticket` no es 'null' al acceder a `ticket.id_ticket` (Error ts18047).
+    // 2. Asegura que `ticket` no es 'null' al hacer `...ticket` en `setTicket` (Error ts2345).
+    //
+    if (!ticket) {
+      setEscalateError("No se ha podido cargar la información del ticket. Por favor, recargue la página.");
+      return;
+    }
+    // ==================== FIN DE LA CORRECCIÓN =====================
 
-    // En lugar de llamar al backend, mostramos un Toast
-    toast({
-      title: "Función en Desarrollo",
-      description: "El endpoint del backend para derivar aún no está listo.",
-      variant: "destructive", // O "default" si prefieres
-    });
+    // Validación del motivo
+    if (!escalateReason.trim()) {
+      setEscalateError("El motivo es obligatorio");
+      return;
+    }
 
-    console.warn("Funcionalidad de derivar no conectada al backend.");
-
-    setIsEscalating(false);
-    setShowEscalateModal(false); // Cierra el modal
+    if (escalateReason.trim().length < 10) {
+      setEscalateError("El motivo debe tener al menos 10 caracteres");
+      return;
+    }
+    setIsEscalating(true);
+    try {
+      // Llamar al backend para derivar el ticket (ahora es seguro)
+      const updatedTicket = await escalateTicket(
+        ticket.id_ticket,
+        escalateReason.trim(),
+        token!
+      );
+      // Mostrar toast de éxito
+      toast({
+        title: "✅ Ticket Derivado",
+        description: "El ticket ha sido derivado exitosamente a un analista de nivel superior.",
+        variant: "default",
+      });
+      // Actualizar el ticket localmente con la nueva información
+      if (updatedTicket) {
+        // (Ahora es seguro)
+        setTicket({
+          ...ticket,
+          last_update: updatedTicket.last_update // Actualizar fecha de última modificación
+        });
+      }
+      // Limpiar el modal
+      setEscalateReason("");
+      setShowEscalateModal(false);
+      // Opcional: Redirigir al dashboard después de 2 segundos
+      setTimeout(() => {
+        window.location.href = "/analyst/dashboard";
+      }, 2000);
+    } catch (error: any) {
+      console.error("Error al derivar:", error);
+      
+      // Mostrar el error específico
+      setEscalateError(error.message || "Error al derivar el ticket. Por favor, intente nuevamente.");
+      
+      // También mostrar un toast de error
+      toast({
+        title: "❌ Error al Derivar",
+        description: error.message || "No se pudo derivar el ticket",
+        variant: "destructive",
+      });
+    } finally {
+      setIsEscalating(false);
+    }
   };
 
   if (loading) {

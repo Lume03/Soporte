@@ -165,3 +165,68 @@ export async function updateAnalystTicketStatus(
     last_update: formatDateTime(data.updated_at)  // <-- LÍNEA AGREGADA
   } // { ok: true, status: "..."}
 }
+
+
+// NUEVA FUNCIÓN: Derivar ticket
+export async function escalateTicket(
+  id_ticket: number | string,
+  motivo: string,
+  token: string
+) {
+  const baseUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+  if (!baseUrl) {
+    throw new Error("Falta NEXT_PUBLIC_BACKEND_API_URL en el .env.local del front");
+  }
+
+  // Validar el motivo antes de enviar
+  if (!motivo || motivo.trim().length < 10) {
+    throw new Error("El motivo debe tener al menos 10 caracteres");
+  }
+
+  const res = await fetch(`${baseUrl}/api/analista/tickets/${id_ticket}/derivar`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ motivo: motivo.trim() }),
+  });
+
+  if (!res.ok) {
+    let errorMessage = "No se pudo derivar el ticket";
+    
+    try {
+      const errorData = await res.json();
+      if (errorData?.detail) {
+        errorMessage = errorData.detail;
+      }
+    } catch {
+      // Si no se puede parsear el error, usar el mensaje por defecto
+    }
+
+    // Manejar errores específicos con mensajes más claros
+    if (res.status === 403) {
+      if (errorMessage.includes("nivel 3")) {
+        throw new Error("Los analistas de nivel 3 no pueden derivar tickets (último nivel de escalado)");
+      }
+      if (errorMessage.includes("no está asignado")) {
+        throw new Error("Solo puede derivar tickets asignados a usted");
+      }
+    }
+    
+    if (res.status === 409) {
+      throw new Error("No hay analistas de nivel superior disponibles para derivar este ticket");
+    }
+
+    throw new Error(errorMessage);
+  }
+
+  const data = await res.json();
+  
+  // Formatear la fecha de actualización si existe
+  return { 
+    ...data, 
+    status: toUiStatus(data.status),
+    last_update: formatDateTime(data.updated_at)
+  };
+}
