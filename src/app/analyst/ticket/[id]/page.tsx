@@ -1,11 +1,13 @@
 // src/app/analyst/ticket/[id]/page.tsx
+
 "use client";
 
+import { Bot, User, FileWarning, Send, Lock, ChevronDown } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
-import { Bot, User, ArrowLeft, FileWarning, Send, Lock } from "lucide-react";
 import { AnalystHeader } from "@/components/analyst/analyst-header";
 import { getAnalystTicketDetail, updateAnalystTicketStatus, escalateTicket } from "@/lib/actions";
 import ReactMarkdown from 'react-markdown';
@@ -19,6 +21,7 @@ import { useToast } from "@/hooks/use-toast"
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type TicketStatus = "Abierto" | "En Atención" | "Cerrado" | "Rechazado";
+type TicketLevel = "Bajo" | "Medio" | "Alto" | "Crítico";
 
 function DetailCard({ label, value }: { label: string; value: string }) {
   return (
@@ -58,6 +61,7 @@ export default function TicketDetailPage() {
     email?: string;
     date?: string;
     status?: TicketStatus;
+    level?: TicketLevel;
     last_update?: string;
   } | null>(null);
 
@@ -67,6 +71,11 @@ export default function TicketDetailPage() {
   const [currentStatus, setCurrentStatus] = useState<TicketStatus>("Abierto");
   const [selectedStatus, setSelectedStatus] = useState<TicketStatus>("Abierto");
   const [description, setDescription] = useState("");
+
+  const [currentLevel, setCurrentLevel] = useState<TicketLevel>("Bajo"); 
+  const [selectedLevel, setSelectedLevel] = useState<TicketLevel>("Bajo");
+
+  const levelOptions: TicketLevel[] = ["Bajo", "Medio", "Alto", "Crítico"];
 
   const requiresDescription = useMemo(
       () => selectedStatus === "Cerrado" || selectedStatus === "Rechazado",
@@ -104,6 +113,7 @@ export default function TicketDetailPage() {
 
         const s: TicketStatus | undefined = data.status as TicketStatus | undefined;
         const initial = (s ?? "Abierto") as TicketStatus;
+        const l: TicketLevel = (data.level ?? "Bajo") as TicketLevel;
 
         setTicket({
           id_ticket: data.id_ticket,
@@ -115,11 +125,15 @@ export default function TicketDetailPage() {
           email: data.email,
           date: data.date,
           status: s,
+          level: l,
           last_update: data.last_update,
         });
         setCurrentStatus(initial);
         setSelectedStatus(initial);
         setDescription("");
+        setCurrentLevel(l); 
+        setSelectedLevel(l);
+
       } catch (e: any) {
         console.error(e);
         setError(e?.message || "Error al cargar el ticket");
@@ -135,7 +149,13 @@ export default function TicketDetailPage() {
     setSaveOk(false);
     setSaveError(null);
     if (v !== "Cerrado") setDescription("");
+    
   };
+  const onChangeLevel = (value: string) => {
+  setSelectedLevel(value as TicketLevel);
+  setSaveOk(false);
+  setSaveError(null);};
+
 
   const handleSave = async () => {
     setSaveError(null);
@@ -274,24 +294,27 @@ export default function TicketDetailPage() {
       <div className="h-screen bg-[#F7FAFC] flex flex-col">
         <AnalystHeader />
         <main className="p-8 flex-1 min-h-0">
-          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch h-full">
-            {/* Izquierda: detalles + gestión */}
-            <div className="lg:col-span-4 bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col overflow-y-auto">
-              <div className="flex-grow">
-                <Link
-                    href="/analyst/dashboard"
-                    className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 mb-6 transition-colors"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  Volver a la lista de tickets
-                </Link>
+          <div className="max-w-7xl mx-auto h-full"> 
 
-                <h2 className="text-xl font-bold text-gray-900 leading-tight mb-1">
-                  {ticket.subject}
-                </h2>
-                <p className="text-sm text-blue-600 font-medium mb-8">
-                  {ticket.id_ticket}
-                </p>
+            <Link
+            href="/analyst/dashboard"
+            className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 mb-6 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Volver a la lista de tickets
+            </Link>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start h-[calc(100%-48px)]">
+
+              {/* Izquierda: detalles + gestión */}
+              <div className="lg:col-span-4 bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col h-full overflow-y-auto">
+                <div className="flex-grow">
+                  <h2 className="text-xl font-bold text-gray-900 leading-tight mb-1">
+                    {ticket.subject}
+                  </h2>
+                  <p className="text-sm text-blue-600 font-medium mb-8">
+                    {ticket.id_ticket}
+                  </p>
 
                 <h3 className="text-sm font-semibold text-gray-500 mb-3 border-b pb-2">
                   Detalles del Ticket
@@ -322,6 +345,44 @@ export default function TicketDetailPage() {
                     <Send className="w-4 h-4" />
                     Derivar Ticket
                   </button>
+
+                  <div className="flex items-center justify-between gap-4">
+                  <label className="block text-sm font-medium text-gray-700 whitespace-nowrap">
+                    NIVEL ACTUAL
+                  </label>
+                  <input
+                      value={currentLevel || "-"}
+                      disabled
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 text-sm shadow-sm"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                    <label
+                        htmlFor="level"
+                        className="block text-sm font-medium text-gray-700 whitespace-nowrap"
+                    >
+                      CAMBIAR NIVEL A
+                    </label>
+                    <div className="relative w-full">
+                      <select
+                          id="level"
+                          name="level"
+                          value={selectedLevel}
+                          onChange={(e) => onChangeLevel(e.target.value)}
+                          className="w-full appearance-none pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm"
+                      >
+                        {levelOptions.map((level) => (
+                          <option key={level} value={level}>
+                            {level}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-5 h-5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+                </div>
+
+                <hr className="my-4 border-gray-200" />
 
                   <div className="flex items-center justify-between gap-4">
                     <label className="block text-sm font-medium text-gray-700 whitespace-nowrap">
@@ -359,8 +420,10 @@ export default function TicketDetailPage() {
                             </option>
                           ))}
                         </select>
-                        {isTerminalStatus && (
+                        {isTerminalStatus ? (
                           <Lock className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                        ) : (
+                          <ChevronDown className="w-5 h-5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                         )}
                       </div>
                   </div>
@@ -603,6 +666,7 @@ export default function TicketDetailPage() {
                   </div>
                 ))}
               </div>
+            </div>
             </div>
           </div>
         </main>
