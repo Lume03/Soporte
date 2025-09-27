@@ -35,8 +35,8 @@ function DetailCard({ label, value }: { label: string; value: string }) {
 export default function TicketDetailPage() {
   const { data: session } = useSession();
   const token = (session as any)?.backendAccessToken as string | undefined;
-  const { toast } = useToast(); 
- 
+  const { toast } = useToast();
+
   const params = useParams<{ id: string }>();
   const id = params?.id;
 
@@ -46,7 +46,7 @@ export default function TicketDetailPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
   const [showEscalateModal, setShowEscalateModal] = useState(false);
- 
+
   const [escalateReason, setEscalateReason] = useState("");
   const [escalateError, setEscalateError] = useState<string | null>(null);
   const [isEscalating, setIsEscalating] = useState(false);
@@ -72,7 +72,7 @@ export default function TicketDetailPage() {
   const [selectedStatus, setSelectedStatus] = useState<TicketStatus>("Abierto");
   const [description, setDescription] = useState("");
 
-  const [currentLevel, setCurrentLevel] = useState<TicketLevel>("Bajo"); 
+  const [currentLevel, setCurrentLevel] = useState<TicketLevel>("Bajo");
   const [selectedLevel, setSelectedLevel] = useState<TicketLevel>("Bajo");
 
   const levelOptions: TicketLevel[] = ["Bajo", "Medio", "Alto", "Crítico"];
@@ -131,7 +131,7 @@ export default function TicketDetailPage() {
         setCurrentStatus(initial);
         setSelectedStatus(initial);
         setDescription("");
-        setCurrentLevel(l); 
+        setCurrentLevel(l);
         setSelectedLevel(l);
 
       } catch (e: any) {
@@ -149,7 +149,7 @@ export default function TicketDetailPage() {
     setSaveOk(false);
     setSaveError(null);
     if (v !== "Cerrado") setDescription("");
-    
+
   };
   const onChangeLevel = (value: string) => {
   setSelectedLevel(value as TicketLevel);
@@ -160,7 +160,6 @@ export default function TicketDetailPage() {
   const handleSave = async () => {
     setSaveError(null);
     setSaveOk(false);
-
     if (!token || !ticket) return;
 
     if (requiresDescription && !description.trim()) {
@@ -170,21 +169,34 @@ export default function TicketDetailPage() {
 
     try {
       setSaving(true);
-      const updatedTicket = await updateAnalystTicketStatus(
-          ticket.id_ticket,
-          selectedStatus,
-          description.trim(),
-          token
-      );
-      
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000"}/api/analista/tickets/${ticket.id_ticket}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          status: selectedStatus,             // <-- estado
+          level: selectedLevel,               // <-- NIVEL (clave correcta)
+          description: description.trim() || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.detail || `HTTP ${res.status}`);
+      }
+
+      const updatedTicket = await res.json();
+
       setSaveOk(true);
       setCurrentStatus(selectedStatus);
-      
-      // Actualizar el ticket con los nuevos datos, incluyendo last_update
-      setTicket({ 
-        ...ticket, 
+      setCurrentLevel(selectedLevel);         // <-- reflejar en UI
+      setTicket({
+        ...ticket,
         status: selectedStatus,
-        last_update: updatedTicket.last_update // <-- LÍNEA AGREGADA
+        level: selectedLevel,                 // <-- reflejar en UI
+        last_update: updatedTicket.last_update ?? ticket.last_update,
       });
     } catch (e: any) {
       console.error(e);
@@ -193,6 +205,7 @@ export default function TicketDetailPage() {
       setSaving(false);
     }
   };
+
 
   const handleConfirmEscalate = async () => {
     setEscalateError(null);
@@ -251,10 +264,10 @@ export default function TicketDetailPage() {
       }, 2000);
     } catch (error: any) {
       console.error("Error al derivar:", error);
-      
+
       // Mostrar el error específico
       setEscalateError(error.message || "Error al derivar el ticket. Por favor, intente nuevamente.");
-      
+
       // También mostrar un toast de error
       toast({
         title: "❌ Error al Derivar",
@@ -294,7 +307,7 @@ export default function TicketDetailPage() {
       <div className="h-screen bg-[#F7FAFC] flex flex-col">
         <AnalystHeader />
         <main className="p-8 flex-1 min-h-0">
-          <div className="max-w-7xl mx-auto h-full"> 
+          <div className="max-w-7xl mx-auto h-full">
 
             <Link
             href="/analyst/dashboard"
@@ -500,7 +513,7 @@ export default function TicketDetailPage() {
                         <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
                       ) : (
                         <div className="markdown-content">
-                          <ReactMarkdown 
+                          <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
                             components={{
                               // EXACTAMENTE los mismos estilos que el chatbot
@@ -529,7 +542,7 @@ export default function TicketDetailPage() {
                               th: ({ children, ...props }) => {
                                 const content = String(children);
                                 let className = "px-2 py-1.5 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider border border-gray-300 bg-blue-50/70";
-                                
+
                                 if (content?.toLowerCase().includes('id')) {
                                   className += " w-[60px] max-w-[60px]";
                                 } else if (content?.toLowerCase().includes('asunto')) {
@@ -543,13 +556,13 @@ export default function TicketDetailPage() {
                                 } else if (content?.toLowerCase().includes('servicio')) {
                                   className += " w-[80px]";
                                 }
-                                
+
                                 return <th className={className} {...props}>{children}</th>;
                               },
                               td: ({ children, ...props }) => {
                                 const content = String(children);
                                 let className = "px-2 py-1.5 text-[11px] text-gray-700 border border-gray-200";
-                                
+
                                 if (content && (content.match(/^#?\d{1,4}$/) || content.length < 5)) {
                                   className += " text-center font-medium";
                                 }
@@ -569,7 +582,7 @@ export default function TicketDetailPage() {
                                 else {
                                   className += " break-words";
                                 }
-                                
+
                                 return (
                                   <td className={className} style={{ wordBreak: 'break-word' }} {...props}>
                                     {children}
@@ -641,9 +654,9 @@ export default function TicketDetailPage() {
                                 <hr className="my-3 border-gray-200" />
                               ),
                               a: ({ children, href, ...props }) => (
-                                <a 
-                                  href={href} 
-                                  target="_blank" 
+                                <a
+                                  href={href}
+                                  target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-blue-500 hover:text-blue-600 underline"
                                   {...props}
@@ -670,7 +683,7 @@ export default function TicketDetailPage() {
             </div>
           </div>
         </main>
-        
+
         {showEscalateModal && (
           <div
             // Overlay (fondo oscuro)
