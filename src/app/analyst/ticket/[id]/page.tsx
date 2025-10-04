@@ -145,7 +145,7 @@ const estimatedResponseTime = ticket?.level ? responseTimes[ticket.level] : "-";
 
         setCurrentStatus(initial);
         setSelectedStatus(initial);
-        setDescription("");
+        setDescription(data.description || "");
 
         setCurrentLevel(capitalizedLevel); // Usamos la variable corregida
         setSelectedLevel(capitalizedLevel);
@@ -458,20 +458,29 @@ const estimatedResponseTime = ticket?.level ? responseTimes[ticket.level] : "-";
                   </div>
                   <div className="min-h-[105px]">
                     {requiresDescription && (
-                        <div className="animate-in fade-in-0 duration-500">
-                          <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-                            DESCRIPCIÓN <span className="text-red-500">(*)</span>
-                          </label>
-                          <textarea
-                              id="description"
-                              name="description"
-                              rows={3}
-                              value={description}
-                              onChange={(e) => setDescription(e.target.value)}
-                              className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm"
-                              placeholder="Motivo del cierre / cómo se solucionó…"
-                          />
-                        </div>
+                      <div className="animate-in fade-in-0 duration-500">
+                        <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+                          DESCRIPCIÓN <span className="text-red-500">(*)</span>
+                        </label>
+                        <textarea
+                          id="description"
+                          name="description"
+                          rows={3}
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          disabled={currentStatus === "Finalizado" || currentStatus === "Cancelado"}
+                          className={`w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm ${
+                            (currentStatus === "Finalizado" || currentStatus === "Cancelado")
+                              ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                              : ""
+                          }`}
+                          placeholder={
+                            (currentStatus === "Finalizado" || currentStatus === "Cancelado")
+                              ? ""
+                              : "Motivo del cierre / cómo se solucionó…"
+                          }
+                        />
+                      </div>
                     )}
                   </div>
                   {saveError && <p className="text-sm text-red-600">{saveError}</p>}
