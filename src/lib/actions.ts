@@ -1,7 +1,7 @@
 // src/lib/actions.ts
 "use server";
 import { formatDateTime } from './dateUtils';
-
+import { toUiStatus } from './data';
 export interface AgentResponse {
   answer: string;
   thread_id: string;
@@ -10,24 +10,7 @@ export interface AgentResponse {
   showContactSupport?: boolean;
 }
 
-// Mapea estados de BD → estados de UI usados por <TicketStatusBadge />
-function toUiStatus(
-    raw?: string
-): "Abierto" | "En Atención" | "Cerrado" | "Rechazado" | undefined {
-  if (!raw) return undefined;
-  const v = raw
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .trim();
 
-  if (v === "en atencion") return "En Atención";
-  if (v === "aceptado" || v === "abierto" || v === "en proceso" || v === "en progreso")
-    return "Abierto";
-  if (v === "cerrado" || v === "finalizado") return "Cerrado";
-  if (v === "cancelado" || v === "rechazado" || v === "anulado") return "Rechazado";
-  return undefined;
-}
 
 export async function submitMessage(
     message: string,
@@ -128,43 +111,44 @@ export async function getAnalystTicketDetail(id_ticket: number | string, token: 
 
 // NUEVO: actualizar estado (y descripción si es Cerrado)
 export async function updateAnalystTicketStatus(
-    id_ticket: number | string,
-    status: string,
-    description: string | undefined,
-    token: string
-) {
-  const baseUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-  if (!baseUrl) throw new Error("Falta NEXT_PUBLIC_BACKEND_API_URL");
+      id_ticket: number | string,
+      status: string,
+      description: string | undefined,
+      token: string,
+      level: string // <-- AÑADE ESTE PARÁMETRO
+  ) {
+    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+    if (!baseUrl) throw new Error("Falta NEXT_PUBLIC_BACKEND_API_URL");
 
-  const body: any = { status };
-  if (description && description.trim()) body.description = description.trim();
+    const body: any = { status, level }; // <-- AÑADE level AL CUERPO
+    if (description && description.trim()) body.description = description.trim();
 
-  const res = await fetch(`${baseUrl}/api/analista/tickets/${id_ticket}/status`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(body),
-  });
+    const res = await fetch(`${baseUrl}/api/analista/tickets/${id_ticket}/status`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
 
-  if (!res.ok) {
-    let msg = "No se pudo actualizar el estado.";
-    try {
-      const j = await res.json();
-      if (j?.detail) msg = j.detail;
-    } catch {}
-    throw new Error(msg);
+    if (!res.ok) {
+      let msg = "No se pudo actualizar el estado.";
+      try {
+        const j = await res.json();
+        if (j?.detail) msg = j.detail;
+      } catch {}
+      throw new Error(msg);
+    }
+
+    const data = await res.json();
+
+    return { 
+      ...data, 
+      status: toUiStatus(data.status),
+      last_update: formatDateTime(data.updated_at)
+    }
   }
-
-  const data = await res.json();
-  
-  return { 
-    ...data, 
-    status: toUiStatus(data.status),
-    last_update: formatDateTime(data.updated_at)  // <-- LÍNEA AGREGADA
-  } // { ok: true, status: "..."}
-}
 
 
 // NUEVA FUNCIÓN: Derivar ticket

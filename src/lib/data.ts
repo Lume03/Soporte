@@ -22,3 +22,43 @@ export const faqData: FaqItem[] = [
 ];
 
 export const faqDocument = faqData.map(item => `P: ${item.question}\nR: ${item.answer}`).join('\n\n');
+
+const statusToUi: { [key: string]: string } = {
+  abierto: "Aceptado",
+  aceptado: "Aceptado",
+  "en atencion": "En Atención",
+  "en atención": "En Atención",
+  cerrado: "Finalizado",
+  finalizado: "Finalizado",
+  rechazado: "Cancelado",
+  cancelado: "Cancelado",
+};
+
+// Mapea los estados de la UI a los que espera recibir el backend
+const statusToBackend: { [key: string]: string } = {
+  Aceptado: "Abierto",
+  "En Atención": "En Atención",
+  Finalizado: "Cerrado",
+  Cancelado: "Rechazado",
+};
+
+/**
+ * Convierte un estado del backend al formato de la UI.
+ */
+export const toUiStatus = (backendStatus?: string): string => {
+  if (!backendStatus) return "-";
+  // Normaliza el texto para que coincida con las claves del mapa
+  const normalized = backendStatus
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+  return statusToUi[normalized] || backendStatus;
+};
+
+/**
+ * Convierte un estado de la UI al formato que el backend espera.
+ */
+export const fromUiStatus = (uiStatus: string): string => {
+  return statusToBackend[uiStatus] || uiStatus;
+};

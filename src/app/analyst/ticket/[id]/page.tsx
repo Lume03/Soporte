@@ -12,15 +12,15 @@ import { AnalystHeader } from "@/components/analyst/analyst-header";
 import { getAnalystTicketDetail, updateAnalystTicketStatus, escalateTicket } from "@/lib/actions";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Button } from "@/components/ui/button";// <-- AÑADIR
+import { Button } from "@/components/ui/button";
 
 import { Label } from "@/components/ui/label";
-
+import { fromUiStatus } from "@/lib/data";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast"
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
-type TicketStatus = "Abierto" | "En Atención" | "Cerrado" | "Rechazado";
+type TicketStatus = "Aceptado" | "En Atención" | "Finalizado" | "Cancelado";
 type TicketLevel = "Bajo" | "Medio" | "Alto" | "Crítico";
 
 function DetailCard({ label, value }: { label: string; value: string }) {
@@ -68,33 +68,40 @@ export default function TicketDetailPage() {
   const [conversation, setConversation] = useState<ChatMessage[]>([]);
 
   // Gestión
-  const [currentStatus, setCurrentStatus] = useState<TicketStatus>("Abierto");
-  const [selectedStatus, setSelectedStatus] = useState<TicketStatus>("Abierto");
+  const [currentStatus, setCurrentStatus] = useState<TicketStatus>("Aceptado");
+const [selectedStatus, setSelectedStatus] = useState<TicketStatus>("Aceptado");
   const [description, setDescription] = useState("");
 
   const [currentLevel, setCurrentLevel] = useState<TicketLevel>("Bajo");
   const [selectedLevel, setSelectedLevel] = useState<TicketLevel>("Bajo");
 
   const levelOptions: TicketLevel[] = ["Bajo", "Medio", "Alto", "Crítico"];
+  const responseTimes: Record<TicketLevel, string> = {
+  Bajo: "4 días",
+  Medio: "2 días",
+  Alto: "1 día",
+  Crítico: "4 horas",
+};
+
+const estimatedResponseTime = ticket?.level ? responseTimes[ticket.level] : "-";
 
   const requiresDescription = useMemo(
-      () => selectedStatus === "Cerrado" || selectedStatus === "Rechazado",
-    [selectedStatus]
+      () => selectedStatus === "Finalizado" || selectedStatus === "Cancelado",
+      [selectedStatus]
   );
 
   const isTerminalStatus = useMemo(
-      () => currentStatus === "Cerrado" || currentStatus === "Rechazado",
+      () => currentStatus === "Finalizado" || currentStatus === "Cancelado",
       [currentStatus]
   );
 
   const statusOptions = useMemo(() => {
-    if (currentStatus === "Abierto") {
-      return ["Abierto", "En Atención", "Cerrado", "Rechazado"];
+    if (currentStatus === "Aceptado") {
+      return ["Aceptado", "En Atención", "Finalizado", "Cancelado"];
     }
     if (currentStatus === "En Atención") {
-      return ["En Atención", "Cerrado", "Rechazado"];
+      return ["En Atención", "Finalizado", "Cancelado"];
     }
-    // Si es Cerrado o Rechazado, solo muestra la opción actual
     return [currentStatus];
   }, [currentStatus]);
 
@@ -113,26 +120,35 @@ export default function TicketDetailPage() {
 
         const s: TicketStatus | undefined = data.status as TicketStatus | undefined;
         const initial = (s ?? "Abierto") as TicketStatus;
-        const l: TicketLevel = (data.level ?? "Bajo") as TicketLevel;
+
+
+        const rawLevel: string = data.level ?? "Bajo";
+        const capitalizedLevel = (rawLevel.charAt(0).toUpperCase() + rawLevel.slice(1)) as TicketLevel;
+        
+        
+        const rawType: string = data.type ?? "";
+        const capitalizedType = rawType.charAt(0).toUpperCase() + rawType.slice(1);
 
         setTicket({
           id_ticket: data.id_ticket,
           subject: data.subject,
-          type: data.type,
+          type: capitalizedType,
           user: data.user,
           company: data.company,
           service: data.service,
           email: data.email,
           date: data.date,
           status: s,
-          level: l,
+          level: capitalizedLevel, // Usamos la variable corregida
           last_update: data.last_update,
         });
+
         setCurrentStatus(initial);
         setSelectedStatus(initial);
         setDescription("");
-        setCurrentLevel(l);
-        setSelectedLevel(l);
+
+        setCurrentLevel(capitalizedLevel); // Usamos la variable corregida
+        setSelectedLevel(capitalizedLevel);
 
       } catch (e: any) {
         console.error(e);
@@ -148,7 +164,7 @@ export default function TicketDetailPage() {
     setSelectedStatus(v);
     setSaveOk(false);
     setSaveError(null);
-    if (v !== "Cerrado") setDescription("");
+    if (v !== "Finalizado") setDescription("");
 
   };
   const onChangeLevel = (value: string) => {
@@ -158,46 +174,42 @@ export default function TicketDetailPage() {
 
 
   const handleSave = async () => {
-    setSaveError(null);
-    setSaveOk(false);
-    if (!token || !ticket) return;
+  setSaveError(null);
+  setSaveOk(false);
+  if (!token || !ticket) return;
 
-    if (requiresDescription && !description.trim()) {
-      setSaveError("La descripción es obligatoria para cerrar el ticket.");
-      return;
-    }
+  if (requiresDescription && !description.trim()) {
+    setSaveError("La descripción es obligatoria para cerrar el ticket.");
+    return;
+  }
 
-    try {
-      setSaving(true);
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000"}/api/analista/tickets/${ticket.id_ticket}/status`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          status: selectedStatus,             // <-- estado
-          level: selectedLevel,               // <-- NIVEL (clave correcta)
-          description: description.trim() || undefined,
-        }),
-      });
+  try {
+    setSaving(true);
 
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j?.detail || `HTTP ${res.status}`);
-      }
+    // ---- INICIO DE LA CORRECCIÓN ----
+    // Usamos la función de actions.ts en lugar del fetch directo
+    const statusForBackend = fromUiStatus(selectedStatus); // <-- Añade esta línea
+    const updatedTicketData = await updateAnalystTicketStatus(
+      ticket.id_ticket,
+      statusForBackend, // <-- Modifica esta línea
+      description.trim() || undefined,
+      token,
+      selectedLevel
+    );
+    // ---- FIN DE LA CORRECCIÓN ----
 
-      const updatedTicket = await res.json();
+    setSaveOk(true);
+    setCurrentStatus(selectedStatus);
+    setCurrentLevel(selectedLevel);
 
-      setSaveOk(true);
-      setCurrentStatus(selectedStatus);
-      setCurrentLevel(selectedLevel);         // <-- reflejar en UI
-      setTicket({
-        ...ticket,
-        status: selectedStatus,
-        level: selectedLevel,                 // <-- reflejar en UI
-        last_update: updatedTicket.last_update ?? ticket.last_update,
-      });
+    // Actualizamos el estado local con los datos formateados que nos devuelve la acción
+    setTicket({
+      ...ticket,
+      status: selectedStatus,
+      level: selectedLevel,
+      last_update: updatedTicketData.last_update, // Ahora sí se actualizará
+    });
+
     } catch (e: any) {
       console.error(e);
       setSaveError(e?.message || "Error al actualizar el estado.");
@@ -317,18 +329,25 @@ export default function TicketDetailPage() {
               Volver a la lista de tickets
             </Link>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start h-[calc(100%-48px)]">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch h-[calc(100%-48px)]">
 
               {/* Izquierda: detalles + gestión */}
               <div className="lg:col-span-4 bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col h-full overflow-y-auto">
-                <div className="flex-grow">
-                  <h2 className="text-xl font-bold text-gray-900 leading-tight mb-1">
-                    {ticket.subject}
-                  </h2>
-                  <p className="text-sm text-blue-600 font-medium mb-8">
-                    {ticket.id_ticket}
-                  </p>
 
+              {/* ---- 1. Cabecera Fija (con position: sticky) ---- */}
+              {/* Ajustes con márgenes negativos para compensar el padding del padre */}
+              <div className="sticky top-[-24px] bg-white z-10 -mx-6 -mt-6 px-6 pt-6 pb-4 mb-4 border-b border-gray-200">
+                <h2 className="text-xl font-bold text-gray-900 leading-tight mb-1">
+                  {ticket.subject}
+                </h2>
+                <p className="text-sm text-blue-600 font-medium">
+                  {ticket.id_ticket}
+                </p>
+              </div>
+
+              {/* ---- 2. Contenido que se desplaza (tu código original) ---- */}
+              <div className="flex-grow">
+                {/* El Asunto y el ID ya no están aquí */}
                 <h3 className="text-sm font-semibold text-gray-500 mb-3 border-b pb-2">
                   Detalles del Ticket
                 </h3>
@@ -342,6 +361,7 @@ export default function TicketDetailPage() {
                   </div>
                   <DetailCard label="Fecha" value={ticket.date || "-"} />
                   <DetailCard label="Última Actualización" value={ticket.last_update || "-"} />
+                  <DetailCard label="Tiempo de Atención" value={estimatedResponseTime} />
                 </div>
 
                 {/* Gestión */}
@@ -359,61 +379,58 @@ export default function TicketDetailPage() {
                     Derivar Ticket
                   </button>
 
-                  <div className="flex items-center justify-between gap-4">
-                  <label className="block text-sm font-medium text-gray-700 whitespace-nowrap">
-                    NIVEL ACTUAL
-                  </label>
-                  <input
-                      value={currentLevel || "-"}
-                      disabled
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 text-sm shadow-sm"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-4">
-                    <label
-                        htmlFor="level"
-                        className="block text-sm font-medium text-gray-700 whitespace-nowrap"
-                    >
-                      CAMBIAR NIVEL A
-                    </label>
-                    <div className="relative w-full">
-                      <select
-                          id="level"
-                          name="level"
-                          value={selectedLevel}
-                          onChange={(e) => onChangeLevel(e.target.value)}
-                          className="w-full appearance-none pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm"
-                      >
-                        {levelOptions.map((level) => (
-                          <option key={level} value={level}>
-                            {level}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="w-5 h-5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    </div>
-                </div>
-
-                <hr className="my-4 border-gray-200" />
-
-                  <div className="flex items-center justify-between gap-4">
-                    <label className="block text-sm font-medium text-gray-700 whitespace-nowrap">
-                      ESTADO ACTUAL
+                  <div className="flex items-center gap-4">
+                    <label className="block text-sm font-medium text-gray-700 w-[140px] flex-shrink-0">
+                      NIVEL ACTUAL
                     </label>
                     <input
-                        value={currentStatus || "-"}
+                        value={currentLevel || "-"}
                         disabled
                         className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 text-sm shadow-sm"
                     />
                   </div>
 
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                      <label
+                          htmlFor="level"
+                          className="block text-sm font-medium text-gray-700 w-[140px] flex-shrink-0"
+                      >
+                        CAMBIAR NIVEL A
+                      </label>
+                      <div className="relative w-full">
+                        <select
+                            id="level"
+                            name="level"
+                            value={selectedLevel}
+                            onChange={(e) => onChangeLevel(e.target.value)}
+                            className="w-full appearance-none pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm"
+                        >
+                          {levelOptions.map((level) => (
+                            <option key={level} value={level}>
+                              {level}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="w-5 h-5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+                  </div>
+                  <hr className="my-4 border-gray-200" />
+                    <div className="flex items-center gap-4">
+                      <label className="block text-sm font-medium text-gray-700 w-[140px] flex-shrink-0">
+                        ESTADO ACTUAL
+                      </label>
+                      <input
+                          value={currentStatus || "-"}
+                          disabled
+                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 text-sm shadow-sm"
+                      />
+                    </div>
+                  <div className="flex items-center gap-4">
                     <label
-                          htmlFor="status"
-                          className={`block text-sm font-medium whitespace-nowrap ${
-                            isTerminalStatus ? "text-gray-400" : "text-gray-700"
-                          }`}
+                        htmlFor="status"
+                        className={`block text-sm font-medium w-[140px] flex-shrink-0 ${
+                          isTerminalStatus ? "text-gray-400" : "text-gray-700"
+                        }`}
                       >
                         CAMBIAR A
                       </label>
@@ -423,10 +440,9 @@ export default function TicketDetailPage() {
                             name="status"
                             value={selectedStatus}
                             onChange={(e) => onChangeStatus(e.target.value)}
-                            disabled={isTerminalStatus} // <-- LÓGICA DE BLOQUEO
+                            disabled={isTerminalStatus}
                             className="w-full appearance-none pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
                         >
-                          {/* Mapeamos las opciones dinámicamente */}
                           {statusOptions.map((status) => (
                             <option key={status} value={status}>
                               {status}
@@ -440,14 +456,10 @@ export default function TicketDetailPage() {
                         )}
                       </div>
                   </div>
-
                   <div className="min-h-[105px]">
                     {requiresDescription && (
                         <div className="animate-in fade-in-0 duration-500">
-                          <label
-                              htmlFor="description"
-                              className="block text-sm font-medium text-gray-700 mb-2"
-                          >
+                          <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
                             DESCRIPCIÓN <span className="text-red-500">(*)</span>
                           </label>
                           <textarea
@@ -462,7 +474,6 @@ export default function TicketDetailPage() {
                         </div>
                     )}
                   </div>
-
                   {saveError && <p className="text-sm text-red-600">{saveError}</p>}
                   {saveOk && (
                       <p className="text-sm text-green-600">
@@ -474,10 +485,10 @@ export default function TicketDetailPage() {
 
               <div className="mt-auto pt-4">
                 <button
-                    type="button"
-                    disabled={saving}
-                    onClick={handleSave}
-                    className="w-full bg-gradient-to-r from-blue-600 to-blue-500 disabled:opacity-60 text-white py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-600 transition-all font-semibold shadow-md hover:shadow-lg"
+                  type="button"
+                  disabled={saving}
+                  onClick={handleSave}
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-500 disabled:opacity-60 text-white py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-600 transition-all font-semibold shadow-md hover:shadow-lg"
                 >
                   {saving ? "Guardando…" : "Guardar"}
                 </button>

@@ -9,8 +9,9 @@ import { Search, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { getAnalystTickets } from "@/lib/actions";
 import { AnalystHeader } from "@/components/analyst/analyst-header";
 import { TicketStatusBadge } from "@/components/analyst/ticket-status-badge";
+import { fromUiStatus } from "@/lib/data";
 
-type TicketStatus = "Abierto" | "En Atención" | "Cerrado" | "Rechazado";
+type TicketStatus = "Aceptado" | "En Atención" | "Finalizado" | "Cancelado";
 type Ticket = {
     id_ticket: number;
     subject: string;
@@ -163,19 +164,21 @@ export default function AnalystDashboardPage() {
 
                         <div className="relative">
                             <select
-                                value={statusFilter}
-                                onChange={(e) => {
-                                    setStatusFilter(e.target.value as TicketStatus | "Todos");
-                                    setCurrentPage(1);
-                                }}
-                                className="appearance-none flex items-center gap-2 pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 transition shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="Todos">Todos los Estados</option>
-                                <option value="Abierto">Abierto</option>
-                                <option value="En Atención">En Atención</option>
-                                <option value="Cerrado">Cerrado</option>
-                                <option value="Rechazado">Rechazado</option>
-                            </select>
+                            value={statusFilter}
+                            onChange={(e) => {
+                                // Simplemente actualizamos el estado con el valor seleccionado
+                                setStatusFilter(e.target.value as TicketStatus | "Todos");
+                                setCurrentPage(1);
+                            }}
+                            className="appearance-none flex items-center gap-2 pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 transition shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            {/* El `value` es lo que se envía al backend. El texto es lo que ve el usuario. */}
+                            <option value="Todos">Todos los Estados</option>
+                            <option value="Abierto">Aceptado</option>
+                            <option value="En Atención">En Atención</option>
+                            <option value="Cerrado">Finalizado</option>
+                            <option value="Rechazado">Cancelado</option>
+                        </select>
                             <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none">
                                 <Filter className="w-5 h-5" />
                             </div>

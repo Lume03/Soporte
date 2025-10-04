@@ -1,17 +1,17 @@
-type Status = 'Abierto' | 'En Atención' | 'Cerrado' | 'Rechazado';
+type Status = 'Aceptado' | 'En Atención' | 'Finalizado' | 'Cancelado';
 
 const statusStyles: Record<Status, string> = {
-  'Abierto': 'bg-blue-100 text-blue-700 ring-blue-200',
+  'Aceptado': 'bg-blue-100 text-blue-700 ring-blue-200',
   'En Atención': 'bg-yellow-100 text-yellow-700 ring-yellow-200',
-  'Cerrado': 'bg-green-100 text-green-700 ring-green-200',
-  'Rechazado': 'bg-red-100 text-red-700 ring-red-200',
+  'Finalizado': 'bg-green-100 text-green-700 ring-green-200',
+  'Cancelado': 'bg-red-100 text-red-700 ring-red-200',
 };
 
 const statusDotStyles: Record<Status, string> = {
-    'Abierto': 'bg-blue-500',
+    'Aceptado': 'bg-blue-500',
     'En Atención': 'bg-yellow-500',
-    'Cerrado': 'bg-green-500',
-    'Rechazado': 'bg-red-500',
+    'Finalizado': 'bg-green-500',
+    'Cancelado': 'bg-red-500',
 };
 
 export function TicketStatusBadge({ status }: { status: Status }) {
