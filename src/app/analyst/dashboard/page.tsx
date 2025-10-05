@@ -10,6 +10,7 @@ import { getAnalystTickets } from "@/lib/actions";
 import { AnalystHeader } from "@/components/analyst/analyst-header";
 import { TicketStatusBadge } from "@/components/analyst/ticket-status-badge";
 import { fromUiStatus } from "@/lib/data";
+import { TicketRow } from "@/components/analyst/ticket-row";
 
 type TicketStatus = "Aceptado" | "En Atención" | "Finalizado" | "Cancelado";
 type Ticket = {
@@ -212,30 +213,8 @@ export default function AnalystDashboardPage() {
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
                                 {paginatedTickets.map((ticket) => (
-                                    <tr
-                                        key={ticket.id_ticket}
-                                        className="hover:bg-gray-50/50 transition-colors"
-                                    >
-                                        <td className="px-6 py-4 font-medium text-blue-600 truncate">
-                                            <Link
-                                                href={`/analyst/ticket/${ticket.id_ticket}`}
-                                                className="hover:underline"
-                                            >
-                                                {ticket.id_ticket}
-                                            </Link>
-                                        </td>
-                                        <td className="px-6 py-4 font-semibold text-gray-800 truncate">
-                                            {ticket.subject}
-                                        </td>
-                                        <td className="px-6 py-4 truncate">{ticket.user || "-"}</td>
-                                        <td className="px-6 py-4 truncate">{ticket.service || "-"}</td>
-                                        <td className="px-6 py-4">
-                                            {ticket.status ? (
-                                                <TicketStatusBadge status={ticket.status as TicketStatus} />
-                                            ) : null}
-                                        </td>
-                                    </tr>
-                                ))}
+                                        <TicketRow key={ticket.id_ticket} ticket={ticket} />
+                                    ))}
                                 </tbody>
                             </table>
                         </div>
