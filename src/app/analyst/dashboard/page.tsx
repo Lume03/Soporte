@@ -193,7 +193,7 @@ export default function AnalystDashboardPage() {
                             <table className="w-full text-sm text-left text-gray-600 table-fixed">
                                 <thead className="bg-gradient-to-r from-blue-50 to-indigo-50 text-xs text-blue-900/80 uppercase tracking-wider">
                                 <tr>
-                                    <th scope="col" className="px-6 py-4 font-semibold w-[15%]">
+                                    <th scope="col" className="px-6 py-4 font-semibold w-[8.2%]">
                                         Ticket ID
                                     </th>
                                     <th scope="col" className="px-6 py-4 font-semibold w-[40%]">
