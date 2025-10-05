@@ -63,6 +63,7 @@ export default function TicketDetailPage() {
     status?: TicketStatus;
     level?: TicketLevel;
     last_update?: string;
+    escalation_reason?: string;
   } | null>(null);
 
   const [conversation, setConversation] = useState<ChatMessage[]>([]);
@@ -141,6 +142,7 @@ const estimatedResponseTime = ticket?.level ? responseTimes[ticket.level] : "-";
           status: s,
           level: capitalizedLevel, // Usamos la variable corregida
           last_update: data.last_update,
+          escalation_reason: data.escalation_reason,
         });
 
         setCurrentStatus(initial);
@@ -343,6 +345,17 @@ const estimatedResponseTime = ticket?.level ? responseTimes[ticket.level] : "-";
                 <p className="text-sm text-blue-600 font-medium">
                   {ticket.id_ticket}
                 </p>
+
+                {ticket.escalation_reason && (
+                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-xs font-semibold text-amber-800 uppercase tracking-wider mb-1">
+                      Motivo de Derivación
+                    </p>
+                    <p className="text-sm text-amber-900">
+                      {ticket.escalation_reason}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* ---- 2. Contenido que se desplaza (tu código original) ---- */}
