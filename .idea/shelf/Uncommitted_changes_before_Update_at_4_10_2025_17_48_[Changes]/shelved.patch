@@ -1,0 +1,219 @@
+Index: src/app/chat/page.tsx
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>\"use client\";\r\n\r\nimport { useSession } from \"next-auth/react\";\r\nimport { useState, useEffect } from \"react\";\r\nimport type { Message } from \"@/lib/types\";\r\nimport { ChatArea } from \"@/components/chat/chat-area\";\r\nimport { ChatInput } from \"@/components/chat/chat-input\";\r\nimport {\r\n    Send,\r\n    Ticket as TicketIcon,\r\n    User,\r\n    Building2,\r\n    UserCog,\r\n    Briefcase,\r\n    CalendarDays,\r\n    CheckCircle,\r\n    ClipboardList,\r\n    FileText,\r\n    CircleDot,\r\n    AlertCircle,\r\n    Clock,\r\n} from \"lucide-react\";\r\nimport { Button } from \"@/components/ui/button\";\r\nimport { submitMessage as handleMessageSubmit } from \"@/lib/actions\";\r\n\r\n// Estructura del ticket (solo para la detección)\r\ntype TicketCard = {\r\n    id: string;\r\n    subject: string;\r\n    type?: string;\r\n    user?: string;\r\n    company?: string;\r\n    service?: string;\r\n    level?: string;\r\n    status?: string;\r\n    date?: string;\r\n    responseTime?: string;\r\n};\r\n\r\n/* ------------------------ helpers de extracción ------------------------ */\r\n\r\nfunction htmlUnescape(s: string) {\r\n    if (!s) return s;\r\n    const el = document.createElement(\"textarea\");\r\n    el.innerHTML = s;\r\n    return el.value;\r\n}\r\n\r\n/** * Parsea la tabla Markdown del backend y extrae los datos del ticket\r\n * Esta versión es más robusta: lee las cabeceras para encontrar los datos,\r\n * sin importar el orden o la cantidad de columnas.\r\n */\r\nfunction parseTicketFromMarkdownTable(text: string): TicketCard | null {\r\n    try {\r\n        const lines = text.split('\\n');\r\n        let headerLine: string | null = null;\r\n        let dataLine: string | null = null;\r\n\r\n        for (let i = 0; i < lines.length; i++) {\r\n            const line = lines[i].trim();\r\n            if (line.includes('| ID') && line.includes('| Asunto')) {\r\n                headerLine = line;\r\n                // Asumir que la línea de datos es la que sigue al separador '---'\r\n                if (lines[i + 1] && lines[i + 1].includes('---')) {\r\n                    dataLine = lines[i + 2];\r\n                }\r\n                break;\r\n            }\r\n        }\r\n\r\n        if (!headerLine || !dataLine) {\r\n            console.log(\"No se encontró cabecera o línea de datos en la tabla.\");\r\n            return null;\r\n        }\r\n\r\n        // Mapear cabeceras a sus índices\r\n        const headers = headerLine.split('|').map(h => h.trim().toLowerCase().replace(/ /g, '_').replace('ó', 'o')); // normalizar cabeceras\r\n        const cells = dataLine.split('|').map(c => c.trim());\r\n        \r\n        // Corregir el índice si hay una celda vacía al principio\r\n        const headerStartIndex = headers.indexOf('id') !== -1 ? headers.indexOf('id') : 1;\r\n        const cellStartIndex = cells[0] === '' ? 1 : 0;\r\n\r\n        const data: { [key: string]: string } = {};\r\n        headers.slice(headerStartIndex).forEach((header, index) => {\r\n            if (header) {\r\n                data[header] = cells[index + cellStartIndex];\r\n            }\r\n        });\r\n\r\n        // Construir el ticket con los datos encontrados\r\n        const ticket: TicketCard = {\r\n            id: data['id'] || \"#000\",\r\n            subject: data['asunto'] || \"Solicitud de soporte\",\r\n            type: data['tipo'] || \"Incidencia\",\r\n            user: data['usuario'] || \"-\",\r\n            company: data['empresa'] || \"-\",\r\n            service: data['servicio'] || \"-\",\r\n            level: data['nivel'] || \"Medio\",\r\n            status: data['estado'] || \"Abierto\",\r\n            date: data['fecha_de_creacion'] || data['fecha'] || new Date().toLocaleDateString(\"es-ES\"),\r\n            responseTime: data['tiempo_de_respuesta'] || \"24 horas\"\r\n        };\r\n        \r\n        console.log(\"Ticket parseado:\", ticket);\r\n        return ticket;\r\n\r\n    } catch (error) {\r\n        console.error(\"Error parseando tabla de ticket:\", error);\r\n        return null;\r\n    }\r\n}\r\n\r\n\r\n/** * Verifica si el mensaje del bot indica que se creó un ticket.\r\n * Devuelve un objeto Ticket si se detecta, o null si no.\r\n */\r\nfunction extractTicketCard(answer: string): TicketCard | null {\r\n    if (!answer) return null;\r\n    const text = htmlUnescape(answer);\r\n\r\n    // Método 1: Buscar formato <card type=\"ticket_created\">\r\n    const cardMatch = text.match(\r\n        /<card\\b[^>]*type\\s*=\\s*(['\"])(ticket_detail|ticket_created)\\1[^>]*>([\\s\\S]*?)<\\/card>/i\r\n    );\r\n\r\n    if (cardMatch) {\r\n        try {\r\n            const body = cardMatch[3];\r\n            const data = JSON.parse(body);\r\n            console.log(\"Ticket extraído de <card> JSON:\", data);\r\n            return { id: data.id || \"card-ticket\", subject: data.subject || \"Ticket\" }; // Devolver algo simple\r\n        } catch (e) {\r\n            console.error(\"Error parseando card JSON:\", e);\r\n        }\r\n    }\r\n\r\n    // Método 2: DETECCIÓN MEJORADA - Más flexible con el lenguaje del agente\r\n    const creationPatterns = [\r\n        /he\\s+(generado|creado|registrado)\\s+(el\\s+)?ticket/i,\r\n        /ticket.*ha\\s+sido\\s+(generado|creado|registrado)/i,\r\n        /se\\s+ha\\s+(generado|creado|registrado).+ticket/i,\r\n        /ticket\\s+#?\\d+.*(generado|creado|registrado)/i,\r\n        /generad[oa]\\s+exitosamente/i,\r\n        /cread[oa]\\s+exitosamente/i,\r\n        /su\\s+solicitud\\s+ha\\s+sido\\s+registrada/i,\r\n        /he\\s+procedido\\s+a\\s+generar/i\r\n    ];\r\n    \r\n    const isCreation = creationPatterns.some(pattern => pattern.test(text));\r\n    const hasTable = text.includes('| ID') && text.includes('| Asunto');\r\n    \r\n    if (isCreation && hasTable) {\r\n        console.log(\"Ticket CREADO detectado con tabla, parseando...\");\r\n        return parseTicketFromMarkdownTable(text); // Devuelve el ticket para confirmar la creación\r\n    }\r\n\r\n    if (isCreation) {\r\n        console.log(\"Ticket mencionado pero sin datos completos\");\r\n        return { id: \"unknown\", subject: \"Ticket\" }; // Devolver algo simple para bloquear el chat\r\n    }\r\n\r\n    return null;\r\n}\r\n\r\n// --- SE ELIMINARON LAS FUNCIONES 'stripTicketData' y 'GeneratedTicketCard' ---\r\n\r\n/* ------------------------ Home page ------------------------ */\r\n\r\nfunction HomePage({\r\n    onSubmitMessage,\r\n    isLoading,\r\n}: {\r\n    onSubmitMessage: (message: string) => void;\r\n    isLoading: boolean;\r\n}) {\r\n    const [inputValue, setInputValue] = useState(\"\");\r\n\r\n    const handleSubmit = (e: React.FormEvent) => {\r\n        e.preventDefault();\r\n        if (inputValue.trim()) {\r\n            onSubmitMessage(inputValue.trim());\r\n            setInputValue(\"\");\r\n        }\r\n    };\r\n\r\n    return (\r\n        <div className=\"flex-1 flex items-center justify-center p-6 min-h-[calc(100vh-88px)]\">\r\n            <div className=\"w-full max-w-4xl bg-white rounded-2xl p-12 text-center mx-auto shadow-xl\">\r\n                <div className=\"w-20 h-20 mx-auto mb-8 relative\">\r\n                    <img\r\n                        src=\"https://i.ibb.co/S4CngF6F/new-analytics-logo.png\"\r\n                        alt=\"Analytics Logo\"\r\n                        className=\"w-full h-full object-contain\"\r\n                    />\r\n                </div>\r\n                <h1 className=\"text-3xl mb-6 leading-relaxed\">\r\n                    <span className=\"bg-gradient-to-r from-[#3498DB] via-[#2980B9] to-[#1ABC9C] bg-clip-text text-transparent font-bold\">\r\n                        ¡Hola! Soy el Asistente Virtual de Analytics.\r\n                    </span>\r\n                </h1>\r\n                <p className=\"text-gray-600 mb-12 text-lg leading-relaxed max-w-2xl mx-auto\">\r\n                    Estoy aquí para ayudarte a resolver una incidencia o a explorar el servicio perfecto para tu próximo proyecto. ¿Cómo te puedo ayudar hoy?\r\n                </p>\r\n                <form onSubmit={handleSubmit} className=\"relative max-w-2xl mx-auto\">\r\n                    <svg\r\n                        className=\"h-5 w-5 text-gray-400 absolute left-6 top-1/2 transform -translate-y-1/2\"\r\n                        fill=\"none\"\r\n                        stroke=\"currentColor\"\r\n                        viewBox=\"0 0 24 24\"\r\n                    >\r\n                        <path\r\n                            strokeLinecap=\"round\"\r\n                            strokeLinejoin=\"round\"\r\n                            strokeWidth={2}\r\n                            d=\"M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-1l-4 4z\"\r\n                        />\r\n                    </svg>\r\n                    <input\r\n                        type=\"text\"\r\n                        placeholder=\"Escribe tu pregunta...\"\r\n                        value={inputValue}\r\n                        onChange={(e) => setInputValue(e.target.value)}\r\n                        disabled={isLoading}\r\n                        className=\"w-full pl-14 pr-20 py-5 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-base shadow-sm\"\r\n                    />\r\n                    <Button\r\n                        type=\"submit\"\r\n                        disabled={isLoading || !inputValue.trim()}\r\n                        size=\"icon\"\r\n                        className=\"absolute right-3 top-1/2 transform -translate-y-1/2 w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-lg transition-transform active:scale-95\"\r\n                    >\r\n                        {isLoading ? (\r\n                            <div className=\"h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent\" />\r\n                        ) : (\r\n                            <Send className=\"h-6 w-6\" />\r\n                        )}\r\n                    </Button>\r\n                </form>\r\n            </div>\r\n        </div>\r\n    );\r\n}\r\n\r\n/* ------------------------ Chat page ------------------------ */\r\n\r\nexport default function ChatPage() {\r\n    const { data: session } = useSession();\r\n    const [messages, setMessages] = useState<Message[]>([]);\r\n    const [isLoading, setIsLoading] = useState(false);\r\n    const [showHomePage, setShowHomePage] = useState(true);\r\n    // const [generatedTicket, setGeneratedTicket] = useState<TicketCard | null>(null); // <-- ELIMINADO\r\n    const [showNewChatButton, setShowNewChatButton] = useState(false);\r\n    const [isChatLocked, setIsChatLocked] = useState(false);\r\n    const [threadId, setThreadId] = useState<string | null>(null);\r\n\r\n    const resetToHome = () => {\r\n        setShowHomePage(true);\r\n        setMessages([]);\r\n        // setGeneratedTicket(null); // <-- ELIMINADO\r\n        setShowNewChatButton(false);\r\n        setIsChatLocked(false);\r\n        setIsLoading(false);\r\n        setThreadId(null);\r\n    };\r\n\r\n    useEffect(() => {\r\n        if (typeof window !== \"undefined\") {\r\n            (window as any).resetChatToHome = resetToHome;\r\n        }\r\n    }, []);\r\n\r\n    const submitMessage = async (messageContent: string) => {\r\n        if (!messageContent.trim() || isLoading) return;\r\n        setShowHomePage(false);\r\n\r\n        const userMessage: Message = {\r\n            id: crypto.randomUUID(),\r\n            role: \"user\",\r\n            content: messageContent,\r\n        };\r\n        setMessages((prev) => [...prev, userMessage]);\r\n        setIsLoading(true);\r\n\r\n        // @ts-ignore\r\n        const token = session?.backendAccessToken;\r\n        if (!token) {\r\n            setMessages((prev) => [\r\n                ...prev,\r\n                {\r\n                    id: crypto.randomUUID(),\r\n                    role: \"assistant\",\r\n                    content: \"Error de autenticación. No pude verificar tu sesión. Por favor, cierra sesión y vuelve a intentarlo.\",\r\n                },\r\n            ]);\r\n            setIsLoading(false);\r\n            setIsChatLocked(true);\r\n            return;\r\n        }\r\n\r\n        try {\r\n            const response = await handleMessageSubmit(messageContent, threadId, token);\r\n            setThreadId(response.thread_id);\r\n\r\n            const raw = String(response.answer || \"\");\r\n            \r\n            console.log(\"=== RESPUESTA COMPLETA DEL BACKEND ===\");\r\n            console.log(raw);\r\n            console.log(\"=====================================\");\r\n            \r\n            // --- LÓGICA SIMPLIFICADA ---\r\n\r\n            // 1. Quitar <card> (que ya no usamos) pero dejar todo lo demás (incluida la tabla)\r\n            const assistantText = htmlUnescape(raw)\r\n                .replace(/<card\\b[^>]*>[\\s\\S]*?<\\/card>/gi, \"\")\r\n                .trim() || raw;\r\n\r\n            // 2. Mostrar el mensaje del asistente (CON tabla)\r\n            setMessages((prev) => [\r\n                ...prev,\r\n                { \r\n                    id: crypto.randomUUID(), \r\n                    role: \"assistant\", \r\n                    content: assistantText \r\n                },\r\n            ]);\r\n\r\n            // 3. Detectar si fue una creación de ticket\r\n            const ticketWasCreated = extractTicketCard(raw);\r\n\r\n            if (ticketWasCreated) {\r\n                // SÍ se creó un ticket, así que bloqueamos el chat\r\n                console.log(\"=== TICKET CREADO - Bloqueando chat ===\");\r\n                setShowNewChatButton(true);\r\n                setIsChatLocked(true);\r\n            }\r\n            // --- FIN LÓGICA SIMPLIFICADA ---\r\n\r\n        } catch (error) {\r\n            console.error(\"Error en submitMessage:\", error);\r\n            setMessages((prev) => [\r\n                ...prev,\r\n                {\r\n                    id: crypto.randomUUID(),\r\n                    role: \"assistant\",\r\n                    content: \"Lo siento, ha ocurrido un error inesperado al enviar el mensaje.\",\r\n                },\r\n            ]);\r\n        } finally {\r\n            setIsLoading(false);\r\n        }\r\n    };\r\n\r\n    const handleFormSubmit = async (formData: FormData) => {\r\n        const content = formData.get(\"message\") as string;\r\n        await submitMessage(content);\r\n    };\r\n\r\n    if (showHomePage) {\r\n        return <HomePage onSubmitMessage={submitMessage} isLoading={isLoading} />;\r\n    }\r\n\r\n    return (\r\n        <div className=\"flex flex-col h-[calc(100vh-88px)]\">\r\n            <div className=\"flex-1 overflow-y-auto p-4 md:p-6\">\r\n                <ChatArea messages={messages} isLoading={isLoading} />\r\n                \r\n                {/* --- SE ELIMINÓ LA LÍNEA DE 'generatedTicket' --- */}\r\n                \r\n                {showNewChatButton && (\r\n                    <div className=\"text-center my-8\">\r\n                        <div className=\"text-gray-600 text-sm mb-4 flex items-center justify-center gap-2 max-w-md mx-auto\">\r\n                            <div className=\"h-px bg-gray-200 flex-1\"></div>\r\n                            <span>¿Tienes otra solicitud?</span>\r\n                            <div className=\"h-px bg-gray-200 flex-1\"></div>\r\n                        </div>\r\n                        <Button onClick={resetToHome}>Iniciar un Nuevo Chat</Button>\r\n                    </div>\r\n                )}\r\n            </div>\r\n\r\n            <div className=\"flex-shrink-0 p-4 md:p-6 border-t bg-white relative\">\r\n                <div className=\"max-w-3xl mx-auto\">\r\n                    <ChatInput\r\n                        onSubmit={handleFormSubmit}\r\n                        isLoading={isLoading}\r\n                        isDisabled={isChatLocked}\r\n                    />\r\n                </div>\r\n            </div>\r\n        </div>\r\n    );\r\n}
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/app/chat/page.tsx b/src/app/chat/page.tsx
+--- a/src/app/chat/page.tsx	(revision 96ae39791143d289554b6872aa3e99a0a0e2048d)
++++ b/src/app/chat/page.tsx	(date 1758999768288)
+@@ -76,7 +76,7 @@
+         // Mapear cabeceras a sus índices
+         const headers = headerLine.split('|').map(h => h.trim().toLowerCase().replace(/ /g, '_').replace('ó', 'o')); // normalizar cabeceras
+         const cells = dataLine.split('|').map(c => c.trim());
+-        
++
+         // Corregir el índice si hay una celda vacía al principio
+         const headerStartIndex = headers.indexOf('id') !== -1 ? headers.indexOf('id') : 1;
+         const cellStartIndex = cells[0] === '' ? 1 : 0;
+@@ -101,7 +101,7 @@
+             date: data['fecha_de_creacion'] || data['fecha'] || new Date().toLocaleDateString("es-ES"),
+             responseTime: data['tiempo_de_respuesta'] || "24 horas"
+         };
+-        
++
+         console.log("Ticket parseado:", ticket);
+         return ticket;
+ 
+@@ -146,10 +146,10 @@
+         /su\s+solicitud\s+ha\s+sido\s+registrada/i,
+         /he\s+procedido\s+a\s+generar/i
+     ];
+-    
++
+     const isCreation = creationPatterns.some(pattern => pattern.test(text));
+     const hasTable = text.includes('| ID') && text.includes('| Asunto');
+-    
++
+     if (isCreation && hasTable) {
+         console.log("Ticket CREADO detectado con tabla, parseando...");
+         return parseTicketFromMarkdownTable(text); // Devuelve el ticket para confirmar la creación
+@@ -168,9 +168,9 @@
+ /* ------------------------ Home page ------------------------ */
+ 
+ function HomePage({
+-    onSubmitMessage,
+-    isLoading,
+-}: {
++                      onSubmitMessage,
++                      isLoading,
++                  }: {
+     onSubmitMessage: (message: string) => void;
+     isLoading: boolean;
+ }) {
+@@ -303,11 +303,11 @@
+             setThreadId(response.thread_id);
+ 
+             const raw = String(response.answer || "");
+-            
++
+             console.log("=== RESPUESTA COMPLETA DEL BACKEND ===");
+             console.log(raw);
+             console.log("=====================================");
+-            
++
+             // --- LÓGICA SIMPLIFICADA ---
+ 
+             // 1. Quitar <card> (que ya no usamos) pero dejar todo lo demás (incluida la tabla)
+@@ -318,10 +318,10 @@
+             // 2. Mostrar el mensaje del asistente (CON tabla)
+             setMessages((prev) => [
+                 ...prev,
+-                { 
+-                    id: crypto.randomUUID(), 
+-                    role: "assistant", 
+-                    content: assistantText 
++                {
++                    id: crypto.randomUUID(),
++                    role: "assistant",
++                    content: assistantText
+                 },
+             ]);
+ 
+@@ -364,9 +364,9 @@
+         <div className="flex flex-col h-[calc(100vh-88px)]">
+             <div className="flex-1 overflow-y-auto p-4 md:p-6">
+                 <ChatArea messages={messages} isLoading={isLoading} />
+-                
++
+                 {/* --- SE ELIMINÓ LA LÍNEA DE 'generatedTicket' --- */}
+-                
++
+                 {showNewChatButton && (
+                     <div className="text-center my-8">
+                         <div className="text-gray-600 text-sm mb-4 flex items-center justify-center gap-2 max-w-md mx-auto">
+Index: .idea/.gitignore
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/.gitignore b/.idea/.gitignore
+new file mode 100644
+--- /dev/null	(date 1758993498460)
++++ b/.idea/.gitignore	(date 1758993498460)
+@@ -0,0 +1,8 @@
++# Default ignored files
++/shelf/
++/workspace.xml
++# Editor-based HTTP Client requests
++/httpRequests/
++# Datasource local storage ignored files
++/dataSources/
++/dataSources.local.xml
+Index: .idea/Soporte.iml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/Soporte.iml b/.idea/Soporte.iml
+new file mode 100644
+--- /dev/null	(date 1758993498598)
++++ b/.idea/Soporte.iml	(date 1758993498598)
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<module type="WEB_MODULE" version="4">
++  <component name="NewModuleRootManager">
++    <content url="file://$MODULE_DIR$">
++      <excludeFolder url="file://$MODULE_DIR$/.tmp" />
++      <excludeFolder url="file://$MODULE_DIR$/temp" />
++      <excludeFolder url="file://$MODULE_DIR$/tmp" />
++    </content>
++    <orderEntry type="inheritedJdk" />
++    <orderEntry type="sourceFolder" forTests="false" />
++  </component>
++</module>
+\ No newline at end of file
+Index: .idea/modules.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/modules.xml b/.idea/modules.xml
+new file mode 100644
+--- /dev/null	(date 1758993498764)
++++ b/.idea/modules.xml	(date 1758993498764)
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="ProjectModuleManager">
++    <modules>
++      <module fileurl="file://$PROJECT_DIR$/.idea/Soporte.iml" filepath="$PROJECT_DIR$/.idea/Soporte.iml" />
++    </modules>
++  </component>
++</project>
+\ No newline at end of file
+Index: .idea/material_theme_project_new.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/material_theme_project_new.xml b/.idea/material_theme_project_new.xml
+new file mode 100644
+--- /dev/null	(date 1758993498514)
++++ b/.idea/material_theme_project_new.xml	(date 1758993498514)
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="MaterialThemeProjectNewConfig">
++    <option name="metadata">
++      <MTProjectMetadataState>
++        <option name="migrated" value="true" />
++        <option name="pristineConfig" value="false" />
++        <option name="userId" value="c2467f5:1964c174e58:-7ffe" />
++      </MTProjectMetadataState>
++    </option>
++  </component>
++</project>
+\ No newline at end of file
+Index: .idea/vcs.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/vcs.xml b/.idea/vcs.xml
+new file mode 100644
+--- /dev/null	(date 1758993498561)
++++ b/.idea/vcs.xml	(date 1758993498561)
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="VcsDirectoryMappings">
++    <mapping directory="" vcs="Git" />
++  </component>
++</project>
+\ No newline at end of file
+Index: package-lock.json
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/package-lock.json b/package-lock.json
+--- a/package-lock.json	(revision 96ae39791143d289554b6872aa3e99a0a0e2048d)
++++ b/package-lock.json	(date 1758993498685)
+@@ -10091,7 +10091,6 @@
+       "version": "10.1.0",
+       "resolved": "https://registry.npmjs.org/react-markdown/-/react-markdown-10.1.0.tgz",
+       "integrity": "sha512-qKxVopLT/TyA6BX3Ue5NwabOsAzm0Q7kAPwq6L+wWDwisYs7R8vZ0nRXqq6rkueboxpkjvLGU9fWifiX/ZZFxQ==",
+-      "license": "MIT",
+       "dependencies": {
+         "@types/hast": "^3.0.0",
+         "@types/mdast": "^4.0.0",
+@@ -10288,7 +10287,6 @@
+       "version": "4.0.1",
+       "resolved": "https://registry.npmjs.org/remark-gfm/-/remark-gfm-4.0.1.tgz",
+       "integrity": "sha512-1quofZ2RQ9EWdeN34S79+KExV1764+wCUGop5CPL1WGdD0ocPpu91lzPGbwWMECpEpd42kJGQwzRfyov9j4yNg==",
+-      "license": "MIT",
+       "dependencies": {
+         "@types/mdast": "^4.0.0",
+         "mdast-util-gfm": "^3.0.0",

@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="be31157c-029b-4720-a7e2-eea48c4d3c40" name="Changes" comment="SE AGREGO NIVEL EN EL BOTON DE GUARDAR PARA EL CAMBIO DE NIVEL." />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="mejoras-fronted" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Lume03&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/Lume03/Soporte.git&quot;,
+    &quot;accountId&quot;: &quot;31dfb0e7-6f22-45a2-89eb-7178192e5c10&quot;
+  },
+  &quot;recentNewPullRequestHead&quot;: {
+    &quot;server&quot;: {
+      &quot;useHttp&quot;: false,
+      &quot;host&quot;: &quot;github.com&quot;,
+      &quot;port&quot;: null,
+      &quot;suffix&quot;: null
+    },
+    &quot;owner&quot;: &quot;Lume03&quot;,
+    &quot;repository&quot;: &quot;Soporte&quot;
+  }
+}</component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4
+}</component>
+  <component name="ProjectId" id="31cCxJo7ZxIj8jtwcY7u5aHGyHU" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "C:/Webstorm progs",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "npm.dev.executor": "Run",
+    "settings.editor.selected.configurable": "preferences.pluginManager",
+    "ts.external.directory.path": "A:\\PROGRAMACION\\WEBSTORM\\Soporte\\node_modules\\typescript\\lib",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="ReactDesignerToolWindowState">
+    <option name="myId2Visible">
+      <map>
+        <entry key="com.intellij.reactbuddy.reactComponents" value="false" />
+        <entry key="com.intellij.reactbuddy.reactInspector" value="false" />
+        <entry key="com.intellij.reactbuddy.storybook" value="false" />
+      </map>
+    </option>
+  </component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="A:\PROGRAMACION\WEBSTORM\Soporte\src\app" />
+    </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="dev" type="js.build_tools.npm" nameIsGenerated="true">
+      <package-json value="$PROJECT_DIR$/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="dev" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
+      <method v="2" />
+    </configuration>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-1632447f56bf-JavaScript-WS-243.26053.12" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="be31157c-029b-4720-a7e2-eea48c4d3c40" name="Changes" comment="" />
+      <created>1755814219147</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1755814219147</updated>
+      <workItem from="1755814220590" duration="5149000" />
+      <workItem from="1755925060645" duration="1790000" />
+      <workItem from="1755999838583" duration="728000" />
+      <workItem from="1756607267260" duration="1110000" />
+      <workItem from="1757088749629" duration="1271000" />
+      <workItem from="1757175840607" duration="6942000" />
+      <workItem from="1757827506925" duration="3028000" />
+      <workItem from="1757860382068" duration="13089000" />
+      <workItem from="1757888307586" duration="2296000" />
+      <workItem from="1757891750224" duration="8358000" />
+      <workItem from="1758133583220" duration="519000" />
+      <workItem from="1758414092554" duration="3303000" />
+      <workItem from="1758427651340" duration="5603000" />
+      <workItem from="1758496729647" duration="1556000" />
+      <workItem from="1758992961289" duration="6454000" />
+      <workItem from="1759012016601" duration="2973000" />
+      <workItem from="1759293022470" duration="255000" />
+      <workItem from="1759618093479" duration="939000" />
+      <workItem from="1760136943545" duration="611000" />
+      <workItem from="1760142243408" duration="521000" />
+      <workItem from="1760143147250" duration="2434000" />
+    </task>
+    <task id="LOCAL-00001" summary="Icono favicon.ico">
+      <option name="closed" value="true" />
+      <created>1755925228673</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1755925228673</updated>
+    </task>
+    <task id="LOCAL-00002" summary="Modifique el Header del Usuario y Soporte , lo archivos de chat-layout.tsx y analyst-header.tsx.">
+      <option name="closed" value="true" />
+      <created>1757178469866</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1757178469866</updated>
+    </task>
+    <task id="LOCAL-00003" summary="Cambios en el actions.ts py page.tsx de dashboard analyst , id analyst y chat ademas de cambiar todos los mockups por datos reales de la base de datos.">
+      <option name="closed" value="true" />
+      <created>1757872977406</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1757872977406</updated>
+    </task>
+    <task id="LOCAL-00004" summary="Cambios en el actions.ts py page.tsx de dashboard analyst , id analyst y chat ademas de cambiar todos los mockups por datos reales de la base de datos.">
+      <option name="closed" value="true" />
+      <created>1757877043955</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1757877043955</updated>
+    </task>
+    <task id="LOCAL-00005" summary="UI ticket analista para que pueda cambiar de estado el ticket">
+      <option name="closed" value="true" />
+      <created>1757890054327</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1757890054327</updated>
+    </task>
+    <task id="LOCAL-00006" summary="UI PARA DESCRIPCION DE TICKET QUE QUEIRE CERRAR EL ANALISTA">
+      <option name="closed" value="true" />
+      <created>1757893981544</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1757893981544</updated>
+    </task>
+    <task id="LOCAL-00007" summary="UI PARA DESCRIPCION DE TICKET QUE QUEIRE CERRAR EL ANALISTA">
+      <option name="closed" value="true" />
+      <created>1757900892638</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1757900892638</updated>
+    </task>
+    <task id="LOCAL-00008" summary="SE AGREGO NIVEL EN EL BOTON DE GUARDAR PARA EL CAMBIO DE NIVEL.">
+      <option name="closed" value="true" />
+      <created>1759000114292</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1759000114292</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Icono favicon.ico" />
+    <MESSAGE value="Modifique el Header del Usuario y Soporte , lo archivos de chat-layout.tsx y analyst-header.tsx." />
+    <MESSAGE value="Cambios en el actions.ts py page.tsx de dashboard analyst , id analyst y chat ademas de cambiar todos los mockups por datos reales de la base de datos." />
+    <MESSAGE value="UI ticket analista para que pueda cambiar de estado el ticket" />
+    <MESSAGE value="UI PARA DESCRIPCION DE TICKET QUE QUEIRE CERRAR EL ANALISTA" />
+    <MESSAGE value="SE AGREGO NIVEL EN EL BOTON DE GUARDAR PARA EL CAMBIO DE NIVEL." />
+    <option name="LAST_COMMIT_MESSAGE" value="SE AGREGO NIVEL EN EL BOTON DE GUARDAR PARA EL CAMBIO DE NIVEL." />
+  </component>
+</project>
