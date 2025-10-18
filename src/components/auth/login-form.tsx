@@ -87,7 +87,7 @@ export function LoginForm() {
             ) : (
                 <>
                     <GoogleIcon className="h-6 w-6" />
-                    <span className="ml-3 text-base">Ingresar como Usuario</span>
+                    <span className="ml-3 text-base">Ingresar como Colaborador</span>
                 </>
             )}
         </Button>
