@@ -45,21 +45,23 @@ export function LoginForm() {
   return (
     <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-10 login-card">
       <div className="flex justify-center mb-6">
-        <div className="w-16 h-16">
+        <div className="w-24 h-24">
           <img
-            src="https://i.ibb.co/S4CngF6F/new-analytics-logo.png"
-            alt="Analytics Logo"
+            src="/favicon.ico"
+            alt="Asistente Logo"
             className="w-full h-full object-contain"
           />
         </div>
       </div>
       
+      
       <h1 className="text-2xl font-bold text-center text-gray-900 mb-2">
-        analytics
+        Plataforma de Soporte
       </h1>
       
+      
       <p className="text-sm text-center text-gray-500 mb-8">
-        Let the data drive the strategy
+        Siempre dispuesto a ayudarte
       </p>
       
       <h2 className="text-3xl font-bold text-center text-gray-900 mb-2">

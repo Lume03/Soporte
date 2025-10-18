@@ -187,9 +187,9 @@ function HomePage({
     return (
         <div className="flex-1 flex items-center justify-center p-6 min-h-[calc(100vh-88px)]">
             <div className="w-full max-w-4xl bg-white rounded-2xl p-12 text-center mx-auto shadow-xl">
-                <div className="w-20 h-20 mx-auto mb-8 relative">
+                <div className="w-24 h-24 mx-auto mb-8 relative">
                     <img
-                        src="https://i.ibb.co/S4CngF6F/new-analytics-logo.png"
+                        src="/favicon.ico"
                         alt="Analytics Logo"
                         className="w-full h-full object-contain"
                     />
