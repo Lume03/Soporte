@@ -4,62 +4,94 @@ import { NextRequest, NextResponse } from "next/server";
 export async function middleware(req: NextRequest) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   const { pathname } = req.nextUrl;
+  const isAuthPage = pathname === "/login";
 
-  const userEmail = token?.email as string | null;
-
-  // 1. LÓGICA DE USUARIO NO AUTENTICADO
+  // 1. Si el usuario NO está autenticado
   if (!token) {
-    // Si intenta acceder a cualquier ruta protegida que NO SEA /login, redirigir a /login.
-    if (pathname !== "/login") {
+    if (!isAuthPage) {
+      // Lo redirigimos a la página de login.
       return NextResponse.redirect(new URL("/login", req.url));
     }
-    // Si está en /login y no tiene token, permitir que vea la página de login.
+    // Si está en /login y no tiene token, permitir acceso
     return NextResponse.next();
   }
 
-  // 2. LÓGICA DE USUARIO AUTENTICADO (token existe)
-  const isUnmsm = userEmail?.endsWith("@unmsm.edu.pe");
-  const isGmailAnalyst = userEmail?.endsWith("@gmail.com");
+  // 2. Si el usuario SÍ está autenticado (AQUÍ EMPIEZA LA LÓGICA DE ROLES)
+  
+  // --- INICIO DE LÓGICA DE ROLES (Basado en tu lógica anterior) ---
+  const email = token.email as string | null;
+  const ADMIN_EMAIL = "grupo2soporteadm@gmail.com";
 
-  // Si un usuario YA logueado intenta volver a /login, lo mandamos a su "home" respectivo.
-  if (pathname === "/login") {
-    const homeUrl = isGmailAnalyst ? "/analyst/dashboard" : "/chat";
+  // Determinamos el rol basado en el email
+  const isAdmin = email === ADMIN_EMAIL;
+  // Asumimos @gmail.com (que no sea admin) es Analista
+  const isAnalista = email?.endsWith("@gmail.com") && !isAdmin; 
+  // El resto (ej: @unmsm.edu.pe o cualquier otro) es Colaborador
+  const isColaborador = !isAdmin && !isAnalista; 
+  
+  // Determinamos el rol y la "home page" correcta
+  let userRole: string = "colaborador"; // Default
+  let homeUrl: string = "/chat";
+  
+  if (isAdmin) {
+      userRole = "admin";
+      homeUrl = "/admin/dashboard";
+  } else if (isAnalista) {
+      userRole = "analista";
+      homeUrl = "/analyst/dashboard";
+  }
+  // --- FIN DE LÓGICA DE ROLES ---
+
+
+  // 2.1. Si está autenticado e intenta ir a /login
+  if (isAuthPage) {
+    // Lo enviamos a su "home" correcta (ya no solo a /chat)
     return NextResponse.redirect(new URL(homeUrl, req.url));
   }
-  
-  // Si el usuario autenticado visita la RUTA RAÍZ (/), lo redirigimos a su "home".
-  // (El formulario de login envía por defecto a /chat, pero esto cubre si visitan / directamente).
+
+  // 2.2. Si está autenticado y va a la ruta raíz "/"
   if (pathname === "/") {
-     const homeUrl = isGmailAnalyst ? "/analyst/dashboard" : "/chat";
-     return NextResponse.redirect(new URL(homeUrl, req.url));
+    // Lo enviamos a su "home" correcta
+    return NextResponse.redirect(new URL(homeUrl, req.url));
   }
 
-  // 3. PROTECCIÓN DE RUTAS (ROLES)
+  // 3. Lógica de Protección de Rutas (ROLES)
+  // (Esto evita que un rol entre a la página de otro)
   
-  // Caso 1: Usuario de Gmail (Analista) intentando acceder a la interfaz del Chatbot.
-  if (isGmailAnalyst && pathname.startsWith("/chat")) {
-    // Bloquear acceso y redirigir a su dashboard correcto.
-    return NextResponse.redirect(new URL("/analyst/dashboard", req.url));
+  // Caso 1: Proteger /admin
+  if (pathname.startsWith("/admin")) {
+    if (userRole !== "admin") {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
   }
 
-  // Caso 2: Usuario de UNMSM (Estudiante) intentando acceder a las rutas de Analista.
-  if (isUnmsm && pathname.startsWith("/analyst")) {
-     // Bloquear acceso y redirigir al chat.
-    return NextResponse.redirect(new URL("/chat", req.url));
+  // Caso 2: Proteger /analyst
+  else if (pathname.startsWith("/analyst")) {
+    if (userRole !== "analista") {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
   }
 
-  // 4. PERMITIR ACCESO
-  // Si ninguna regla anterior aplica (ej: UNMSM en /chat, o Gmail en /analyst/dashboard),
-  // permitir que la solicitud continúe.
+  // Caso 3: Proteger /chat (colaborador)
+  else if (pathname.startsWith("/chat")) {
+    if (userRole !== "colaborador") {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+  }
+
+  // 4. Si pasa todas las validaciones, dejamos que continúe.
   return NextResponse.next();
 }
 
 export const config = {
-  // Aplicar este middleware a todas las rutas críticas.
-  matcher: [
-    "/chat/:path*",
-    "/login",
-    "/analyst/:path*",
-    "/", // Proteger la ruta raíz también
+   matcher: [
+     /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+   "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ],
 };

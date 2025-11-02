@@ -29,16 +29,16 @@ export function AnalystHeader() {
         
 
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12">
+          <div className="w-16 h-16"> 
             <img 
-              src="https://i.ibb.co/S4CngF6F/new-analytics-logo.png" 
-              alt="Analytics Logo" 
+              src="/favicon.ico" 
+              alt="Asistente Logo" 
               className="w-full h-full object-contain"
             />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
-            <p className="text-sm text-gray-500">Let the data drive the strategy</p>
+            <h1 className="text-2xl font-bold text-gray-900">Plataforma de Soporte</h1>
+            <p className="text-sm text-gray-500">Siempre dispuesto a ayudarte</p>
           </div>
         </div>
 
