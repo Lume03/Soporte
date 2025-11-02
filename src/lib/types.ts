@@ -23,4 +23,12 @@ export type FaqItem = {
   question: string;
   answer: string;
 };
-
+export interface Servicio {
+  id: number; 
+  nombre: string;
+}
+export type Cliente = {
+  id: number;
+  nombre: string;
+  dominio: string; 
+};

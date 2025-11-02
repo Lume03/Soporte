@@ -11,14 +11,30 @@ import Link from 'next/link';
 export function LoginForm() {
   const [isLoadingUser, setIsLoadingUser] = useState(false);
   const [isLoadingAnalyst, setIsLoadingAnalyst] = useState(false);
+  const [isLoadingAdmin, setIsLoadingAdmin] = useState(false);
   const { toast } = useToast();
 
-  const handleLogin = async (role: 'user' | 'analyst') => {
-    const setIsLoading = role === 'user' ? setIsLoadingUser : setIsLoadingAnalyst;
-    setIsLoading(true);
+  const handleLogin = async (role: 'user' | 'analyst' | 'admin') => { 
+    
+    let setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
+    let backendRole: string;
+    let callbackUrl: string;
 
-    const backendRole = role === 'user' ? 'colaborador' : 'analista';
-    const callbackUrl = role === 'user' ? '/chat' : '/analyst/dashboard';
+    if (role === 'user') {
+      setIsLoading = setIsLoadingUser;
+      backendRole = 'colaborador';
+      callbackUrl = '/chat';
+    } else if (role === 'analyst') {
+      setIsLoading = setIsLoadingAnalyst;
+      backendRole = 'analista';
+      callbackUrl = '/analyst/dashboard';
+    } else { 
+      setIsLoading = setIsLoadingAdmin;
+      backendRole = 'admin';
+      callbackUrl = '/admin/dashboard';
+    }
+
+    setIsLoading(true);
 
     try {
       // 1. Establece la cookie con el rol ANTES de iniciar sesión.
@@ -75,7 +91,7 @@ export function LoginForm() {
       <div className="space-y-4">
         <Button
             onClick={() => handleLogin('user')}
-            disabled={isLoadingUser || isLoadingAnalyst}
+            disabled={isLoadingUser || isLoadingAnalyst || isLoadingAdmin}
             variant="outline"
             className="w-full h-14 text-lg py-3 font-semibold rounded-lg bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-50 hover:shadow-lg transition-all duration-300"
         >
@@ -93,7 +109,7 @@ export function LoginForm() {
         </Button>
         <Button
             onClick={() => handleLogin('analyst')}
-            disabled={isLoadingAnalyst || isLoadingUser}
+            disabled={isLoadingAnalyst || isLoadingUser || isLoadingAdmin}
             variant="outline"
             className="w-full h-14 text-lg py-3 font-semibold rounded-lg bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-50 hover:shadow-lg transition-all duration-300"
         >
@@ -109,6 +125,24 @@ export function LoginForm() {
                 </>
             )}
         </Button>
+        <Button
+        onClick={() => handleLogin('admin')}
+        disabled={isLoadingAnalyst || isLoadingUser || isLoadingAdmin}
+        variant="outline"
+        className="w-full h-14 text-lg py-3 font-semibold rounded-lg bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-50 hover:shadow-lg transition-all duration-300"
+      >
+        {isLoadingAdmin ? (
+          <>
+            <Loader2 className="animate-spin h-5 w-5 mr-2" />
+            Iniciando sesión...
+          </>
+        ) : (
+          <>
+            <GoogleIcon className="h-6 w-6" />
+            <span className="ml-3 text-base">Ingresar como Administrador</span>
+          </>
+        )}
+      </Button>
       </div>
       
       <div className="mt-6 text-center text-xs text-gray-500 space-y-2">

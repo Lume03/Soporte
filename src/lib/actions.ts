@@ -10,8 +10,6 @@ export interface AgentResponse {
   showContactSupport?: boolean;
 }
 
-
-
 export async function submitMessage(
     message: string,
     thread_id: string | null,
@@ -72,13 +70,13 @@ export async function getAnalystTickets(
     token: string,
     limit = 10,
     offset = 0,
-    status?: string            // <- ya lo tienes en tu llamada
+    status?: string           
 ) {
     const baseUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL!;
     const url = new URL(`${baseUrl}/api/analista/conversaciones`);
     url.searchParams.set("limit", String(limit));
     url.searchParams.set("offset", String(offset));
-    if (status && status !== "Todos") url.searchParams.set("status", status); // <- ESTA LÍNEA
+    if (status && status !== "Todos") url.searchParams.set("status", status); 
 
     const res = await fetch(url.toString(), {
         headers: { Authorization: `Bearer ${token}` },
@@ -109,18 +107,17 @@ export async function getAnalystTicketDetail(id_ticket: number | string, token: 
   return { ...data, status: toUiStatus(data.status), last_update: formatDateTime(data.updated_at) };
 }
 
-// NUEVO: actualizar estado (y descripción si es Cerrado)
 export async function updateAnalystTicketStatus(
       id_ticket: number | string,
       status: string,
       description: string | undefined,
       token: string,
-      level: string // <-- AÑADE ESTE PARÁMETRO
+      level: string 
   ) {
     const baseUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
     if (!baseUrl) throw new Error("Falta NEXT_PUBLIC_BACKEND_API_URL");
 
-    const body: any = { status, level }; // <-- AÑADE level AL CUERPO
+    const body: any = { status, level }; 
     if (description && description.trim()) body.description = description.trim();
 
     const res = await fetch(`${baseUrl}/api/analista/tickets/${id_ticket}/status`, {
@@ -151,7 +148,7 @@ export async function updateAnalystTicketStatus(
   }
 
 
-// NUEVA FUNCIÓN: Derivar ticket
+
 export async function escalateTicket(
   id_ticket: number | string,
   motivo: string,
@@ -162,7 +159,7 @@ export async function escalateTicket(
     throw new Error("Falta NEXT_PUBLIC_BACKEND_API_URL en el .env.local del front");
   }
 
-  // Validar el motivo antes de enviar
+
   if (!motivo || motivo.trim().length < 10) {
     throw new Error("El motivo debe tener al menos 10 caracteres");
   }
@@ -185,10 +182,10 @@ export async function escalateTicket(
         errorMessage = errorData.detail;
       }
     } catch {
-      // Si no se puede parsear el error, usar el mensaje por defecto
+
     }
 
-    // Manejar errores específicos con mensajes más claros
+
     if (res.status === 403) {
       if (errorMessage.includes("nivel 3")) {
         throw new Error("Los analistas de nivel 3 no pueden derivar tickets (último nivel de escalado)");
@@ -207,7 +204,7 @@ export async function escalateTicket(
 
   const data = await res.json();
   
-  // Formatear la fecha de actualización si existe
+
   return { 
     ...data, 
     status: toUiStatus(data.status),
