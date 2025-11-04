@@ -1,11 +1,27 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Cliente } from "@/lib/types"; 
+import { useState, useTransition, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import {
+  Cliente,
+  Servicio,
+  ClienteDetalle,
+  ClienteFormInput,
+  FormState,
+} from "@/lib/types"; 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
+
+import {
+  fetchAllClientes,
+  fetchAllServicios,
+  fetchClienteDetalle,
+  createCliente,
+  updateCliente,
+  deleteCliente,
+} from "@/lib/actions";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +37,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription, 
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
@@ -45,307 +62,406 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area"; 
+import { Skeleton } from "@/components/ui/skeleton"; 
 import { PlusCircle, FilePenLine, Loader2 } from "lucide-react";
 
-// Lista de servicios disponibles
-const SERVICIOS_DISPONIBLES = [
-  { id: "ninguno", label: "Ninguno" },
-  { id: "soporte_tecnico", label: "Soporte Técnico" },
-  { id: "consultoria", label: "Consultoría" },
-  { id: "desarrollo", label: "Desarrollo de Software" },
-  { id: "hosting", label: "Hosting" },
-  { id: "mantenimiento", label: "Mantenimiento" },
-];
 
 const formSchema = z.object({
-  nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres."),
+  nombre_cliente: z.string().min(3, "El nombre debe tener al menos 3 caracteres."),
   dominio: z.string().min(3, "El dominio debe tener al menos 3 caracteres."),
-  servicios: z.array(z.string()).default([]),
+  servicios_ids: z
+    .array(z.string())
+    .min(1, "Debe seleccionar al menos un servicio."),
 });
+
 
 type FormValues = z.infer<typeof formSchema>;
 
-interface ClientesClientUIProps {
-  initialData: Cliente[];
-}
 
-export function ClientesClientUI({ initialData }: ClientesClientUIProps) {
+export function ClientesClientUI() {
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const [clientes, setClientes] = useState(initialData);
-  const [editingClient, setEditingClient] = useState<Cliente | null>(null);
+
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [allServicios, setAllServicios] = useState<Servicio[]>([]); 
+
+
+  const [isLoadingData, setIsLoadingData] = useState(true); 
+  const [isLoadingDetalle, setIsLoadingDetalle] = useState(false); 
+
+
+  const [isFormModalOpen, setFormModalOpen] = useState(false);
+  const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
+  
+ 
+  const [editingClient, setEditingClient] = useState<ClienteDetalle | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+
+ 
+  const { data: session } = useSession();
+  
+  const token = session?.backendAccessToken as string | undefined;
+
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { nombre: "", dominio: "", servicios: [] },
+    defaultValues: {
+      nombre_cliente: "",
+      dominio: "",
+      servicios_ids: [],
+    },
   });
 
-  // Función para obtener el label del servicio
-  const getServicioLabel = (servicioId: string) => {
-    const servicio = SERVICIOS_DISPONIBLES.find(s => s.id === servicioId);
-    return servicio?.label || servicioId;
+
+  useEffect(() => {
+    if (token) {
+      const loadInitialData = async () => {
+        setIsLoadingData(true);
+        try {
+          
+          const [clientesData, serviciosData] = await Promise.all([
+            fetchAllClientes(token),
+            fetchAllServicios(token), 
+          ]);
+          setClientes(clientesData);
+          setAllServicios(serviciosData);
+        } catch (error: any) {
+          toast({ title: "Error al cargar datos", description: error.message, variant: "destructive" });
+        } finally {
+          setIsLoadingData(false);
+        }
+      };
+      loadInitialData();
+    }
+  }, [token, toast]);
+
+
+  const handleOpenCreateModal = () => {
+    setEditingClient(null); 
+    form.reset({ nombre_cliente: "", dominio: "", servicios_ids: [] }); 
+    setFormModalOpen(true);
   };
 
-  const handleOpenDialog = (cliente: Cliente | null) => {
-    setEditingClient(cliente);
-    if (cliente) {
-      form.reset({ 
-        nombre: cliente.nombre, 
-        dominio: cliente.dominio,
-        servicios: (cliente as any).servicios || []
+  const handleOpenEditModal = async (cliente: Cliente) => {
+    if (!token) return;
+    
+    setEditingClient(null); 
+    setIsLoadingDetalle(true); 
+    setFormModalOpen(true);
+
+    try {
+     
+      const detalle = await fetchClienteDetalle(token, cliente.id_cliente);
+      
+   
+      form.reset({
+        nombre_cliente: detalle.nombre,
+        dominio: detalle.dominio,
+        servicios_ids: detalle.servicios.map((s) => s.id_servicio), 
       });
-    } else {
-      form.reset({ nombre: "", dominio: "", servicios: [] });
+      
+      setEditingClient(detalle); 
+    } catch (error: any) {
+      toast({ title: "Error al cargar detalle", description: error.message, variant: "destructive" });
+      setFormModalOpen(false); 
+    } finally {
+      setIsLoadingDetalle(false); 
     }
-    setOpen(true);
   };
+
+
+  const handleOpenDeleteAlert = (cliente: Cliente) => {
+    setSelectedClientId(cliente.id_cliente); 
+    setDeleteAlertOpen(true);
+  };
+
 
   const onSubmit = (values: FormValues) => {
-    startTransition(() => {
-      setTimeout(() => {
+    if (!token) return;
+
+    startTransition(async () => {
+      let result: FormState;
+      try {
         if (editingClient) {
-          setClientes(
-            clientes.map((c) =>
-              c.id === editingClient.id ? { ...editingClient, ...values } : c
-            )
-          );
-          toast({ title: "Éxito (Simulado)", description: "Cliente actualizado." });
+         
+          result = await updateCliente(token, editingClient.id_cliente, values);
         } else {
-          const newId = Math.max(...clientes.map((c) => c.id), 0) + 1;
-          setClientes([...clientes, { id: newId, ...values }]);
-          toast({ title: "Éxito (Simulado)", description: "Cliente creado." });
+       
+          result = await createCliente(token, values);
         }
-        setOpen(false); 
-      }, 500); 
+
+        if (result.success) {
+          toast({ title: "Éxito", description: result.message });
+          setFormModalOpen(false);
+          
+          setIsLoadingData(true);
+          setClientes(await fetchAllClientes(token));
+          setIsLoadingData(false);
+        } else {
+          toast({ title: "Error", description: result.message, variant: "destructive" });
+        }
+      } catch (error: any) {
+         toast({ title: "Error inesperado", description: error.message, variant: "destructive" });
+      }
     });
   };
 
-  const handleDelete = (id: number) => {
-    startTransition(() => {
-      setTimeout(() => {
-        setClientes(clientes.filter((c) => c.id !== id));
-        toast({ title: "Éxito (Simulado)", description: "Cliente eliminado." });
-      }, 500); 
+
+  const handleDelete = () => {
+    if (!token || !selectedClientId) return;
+
+    startTransition(async () => {
+      try {
+        const result = await deleteCliente(token, selectedClientId);
+        
+        if (result.success) {
+          toast({ title: "Éxito", description: result.message });
+         
+          setIsLoadingData(true);
+          setClientes(await fetchAllClientes(token));
+          setIsLoadingData(false);
+        } else {
+          toast({ title: "Error", description: result.message, variant: "destructive" });
+        }
+      } catch (error: any) {
+         toast({ title: "Error inesperado", description: error.message, variant: "destructive" });
+      } finally {
+        setDeleteAlertOpen(false);
+        setSelectedClientId(null);
+      }
     });
   };
+  
+
+  const deleteClientName = clientes.find(c => c.id_cliente === selectedClientId)?.nombre || "";
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={isFormModalOpen} onOpenChange={setFormModalOpen}>
       <div className="flex justify-end mb-4">
-        <Button onClick={() => handleOpenDialog(null)}>
+        <Button onClick={handleOpenCreateModal}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Nuevo cliente
         </Button>
       </div>
 
+     
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="w-[80px]">ID</TableHead>
-              <TableHead className="w-[200px]">Nombre</TableHead>
-              <TableHead className="w-[180px]">Dominio</TableHead>
-              <TableHead>Servicios</TableHead>
-              <TableHead className="w-[180px] text-right">Acciones</TableHead>
+              <TableHead className="w-[300px]">ID Cliente</TableHead>
+              <TableHead className="w-[250px]">Nombre</TableHead>
+              <TableHead className="w-[180px] text-center">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {clientes.map((cliente) => {
-              const servicios = (cliente as any).servicios || [];
-              
-              return (
-                <TableRow key={cliente.id}>
-                  <TableCell className="font-medium">{cliente.id}</TableCell>
-                  <TableCell>{cliente.nombre}</TableCell>
-                  <TableCell>{cliente.dominio}</TableCell>
-                  <TableCell>
-                    {servicios.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {servicios.map((servicioId: string) => (
-                          <Badge 
-                            key={servicioId} 
-                            variant="secondary"
-                            className="text-xs"
-                          >
-                            {getServicioLabel(servicioId)}
-                          </Badge>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground text-sm italic">
-                        Sin servicios
-                      </span>
-                    )}
+            {isLoadingData ? (
+            
+              <TableRow>
+                <TableCell colSpan={3} className="h-24">
+                  <Skeleton className="h-5 w-full my-1" />
+                  <Skeleton className="h-5 w-full my-1" />
+                </TableCell>
+              </TableRow>
+            ) : clientes.length === 0 ? (
+            
+              <TableRow>
+                <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                  No se encontraron clientes.
+                </TableCell>
+              </TableRow>
+            ) : (
+           
+              clientes.map((cliente) => (
+                <TableRow key={cliente.id_cliente}>
+                  <TableCell className="font-medium text-xs text-muted-foreground">
+                    {cliente.id_cliente}
                   </TableCell>
-
-                  <TableCell className="text-right whitespace-nowrap">
+                  <TableCell>{cliente.nombre}</TableCell>
+                  <TableCell className="text-center whitespace-nowrap">
                     <Button
                       variant="outline"
                       size="sm"
                       className="mr-2"
-                      onClick={() => handleOpenDialog(cliente)}
+                      onClick={() => handleOpenEditModal(cliente)}
                     >
                       <FilePenLine className="h-4 w-4 mr-1" />
                       Editar
                     </Button>
-
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button
                           variant="destructive"
                           size="sm"
                           disabled={isPending}
+                          onClick={() => handleOpenDeleteAlert(cliente)}
                         >
                           Eliminar
                         </Button>
                       </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Simulación: Eliminar permanentemente al cliente "
-                            {cliente.nombre}".
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDelete(cliente.id)}
-                            disabled={isPending}
-                          >
-                            {isPending ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              "Eliminar"
-                            )}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
+                      
                     </AlertDialog>
                   </TableCell>
                 </TableRow>
-              );
-            })}
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
 
+    
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {editingClient ? "Editar Cliente" : "Crear Nuevo Cliente"}
           </DialogTitle>
+          <DialogDescription>
+            {editingClient 
+              ? "Actualiza los datos del cliente."
+              : "Completa los datos para el nuevo cliente."
+            }
+          </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="nombre"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nombre del Cliente</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ej: Empresa S.A.C." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
-            <FormField
-              control={form.control}
-              name="dominio"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Dominio</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ej: empresa.com" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="servicios"
-              render={() => (
-                <FormItem>
-                  <div className="mb-4">
-                    <FormLabel className="text-base">Servicios</FormLabel>
-                  </div>
-                  {SERVICIOS_DISPONIBLES.map((servicio) => (
-                    <FormField
-                      key={servicio.id}
-                      control={form.control}
-                      name="servicios"
-                      render={({ field }) => {
-                        return (
-                          <FormItem
-                            key={servicio.id}
-                            className="flex flex-row items-start space-x-3 space-y-0"
-                          >
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value?.includes(servicio.id)}
-                                onCheckedChange={(checked) => {
-                                  const currentValue = field.value || [];
-                                  
-                                  // Si selecciona "Ninguno", limpiar todo
-                                  if (servicio.id === "ninguno" && checked) {
-                                    return field.onChange([]);
-                                  }
-                                  
-                                  // Si selecciona otro servicio, quitar "Ninguno" si está presente
-                                  if (servicio.id !== "ninguno" && checked) {
-                                    const withoutNinguno = currentValue.filter(v => v !== "ninguno");
-                                    return field.onChange([...withoutNinguno, servicio.id]);
-                                  }
-                                  
-                                  // Agregar o quitar el servicio
-                                  return checked
-                                    ? field.onChange([...currentValue, servicio.id])
-                                    : field.onChange(
-                                        currentValue.filter(
-                                          (value) => value !== servicio.id
-                                        )
-                                      );
-                                }}
-                              />
-                            </FormControl>
-                            <FormLabel className="font-normal">
-                              {servicio.label}
-                            </FormLabel>
-                          </FormItem>
-                        );
-                      }}
-                    />
-                  ))}
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="outline">
-                  Cancelar
-                </Button>
-              </DialogClose>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  "Guardar"
+       
+        {isLoadingDetalle ? (
+          
+          <div className="space-y-4 py-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-40 w-full" />
+          </div>
+        ) : (
+         
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              
+              <FormField
+                control={form.control}
+                name="nombre_cliente"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre del Cliente</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ej: Empresa S.A.C." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+              />
+
+             
+              <FormField
+                control={form.control}
+                name="dominio"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Dominio</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ej: empresa.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+        
+              <FormField
+                control={form.control}
+                name="servicios_ids"
+                render={() => (
+                  <FormItem>
+                    <div className="mb-4">
+                      <FormLabel className="text-base">Servicios Asignados</FormLabel>
+                    </div>
+                    <ScrollArea className="h-40 w-full rounded-md border p-4">
+                      {allServicios.map((servicio) => (
+                        <FormField
+                          key={servicio.id_servicio}
+                          control={form.control}
+                          name="servicios_ids"
+                          render={({ field }) => {
+                            return (
+                              <FormItem
+                                key={servicio.id_servicio}
+                                className="flex flex-row items-center space-x-3 space-y-0 mb-2"
+                              >
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value?.includes(servicio.id_servicio)}
+                                    onCheckedChange={(checked) => {
+                                      return checked
+                                        ? field.onChange([...field.value, servicio.id_servicio])
+                                        : field.onChange(
+                                            field.value?.filter(
+                                              (value) => value !== servicio.id_servicio
+                                            )
+                                          );
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormLabel className="font-normal text-sm">
+                                  {servicio.nombre}
+                                </FormLabel>
+                              </FormItem>
+                            );
+                          }}
+                        />
+                      ))}
+                    </ScrollArea>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter className="pt-4">
+                <DialogClose asChild>
+                  <Button type="button" variant="outline">
+                    Cancelar
+                  </Button>
+                </DialogClose>
+                <Button type="submit" disabled={isPending}>
+                  {isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    "Guardar"
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        )}
       </DialogContent>
+
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás realmente seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. Esto eliminará permanentemente al
+              cliente <span className="font-bold">{deleteClientName}</span> y todas
+              sus asociaciones (tickets, dominios, etc.).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isPending}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                "Eliminar Permanentemente"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
+

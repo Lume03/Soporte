@@ -34,8 +34,21 @@ export type FormState = {
 };
 
 export type Cliente = {
-  id: number;
+  id_cliente: string; 
   nombre: string;
-  dominio: string; 
+};
+
+
+export type ClienteDetalle = {
+  id_cliente: string;
+  nombre: string;
+  dominio: string;
+  servicios: Servicio[]; 
+};
+
+export type ClienteFormInput = {
+  nombre_cliente: string;
+  dominio: string;
+  servicios_ids: string[]; 
 };
 

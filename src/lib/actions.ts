@@ -3,7 +3,7 @@
 import { formatDateTime } from './dateUtils';
 import { toUiStatus } from './data';
 import { revalidatePath } from "next/cache";
-import type { Servicio, FormState } from "./types";
+import type { Servicio, FormState, Cliente, ClienteDetalle, ClienteFormInput } from "./types";
 
 export type AgentResponse ={
   answer: string;
@@ -218,7 +218,7 @@ export async function escalateTicket(
 export async function fetchAllServicios(token: string): Promise<Servicio[]> {
   const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL;
   try {
-    // Corregido: Se quitó /v1
+    
     const response = await fetch(`${API_URL}/api/admin/servicios`, {
       method: "GET",
       headers: { "Authorization": `Bearer ${token}` },
@@ -227,7 +227,7 @@ export async function fetchAllServicios(token: string): Promise<Servicio[]> {
 
     if (!response.ok) {
       console.error("Error fetching servicios:", response.status, response.statusText);
-      // El 404 significa que la ruta GET /api/admin/servicios no existe en tu backend
+      
       if (response.status === 404) {
          throw new Error("Error 404: La ruta GET /api/admin/servicios no se encontró en el backend.");
       }
@@ -237,13 +237,10 @@ export async function fetchAllServicios(token: string): Promise<Servicio[]> {
     return data;
   } catch (error) {
     console.error("Error en fetchAllServicios:", error);
-    throw error; // Lanzamos el error original
+    throw error; 
   }
 }
 
-/**
- * [ACTION] Crear un nuevo servicio
- */
 export async function createServicio(token: string, values: { nombre: string }): Promise<FormState> {
   const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL;
   const nombre = values.nombre;
@@ -253,7 +250,7 @@ export async function createServicio(token: string, values: { nombre: string }):
   }
 
   try {
-    // Corregido: Se quitó /v1
+    
     const response = await fetch(`${API_URL}/api/admin/servicios`, {
       method: "POST",
       headers: {
@@ -276,9 +273,6 @@ export async function createServicio(token: string, values: { nombre: string }):
   }
 }
 
-/**
- * [ACTION] Actualizar un servicio existente
- */
 export async function updateServicio(token: string, id: string, values: { nombre: string }): Promise<FormState> {
   const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL;
   const nombre = values.nombre;
@@ -288,7 +282,7 @@ export async function updateServicio(token: string, id: string, values: { nombre
   }
   
   try {
-    // Corregido: Se quitó /v1
+   
     const response = await fetch(`${API_URL}/api/admin/servicios/${id}`, {
       method: "PUT",
       headers: {
@@ -311,14 +305,12 @@ export async function updateServicio(token: string, id: string, values: { nombre
   }
 }
 
-/**
- * [ACTION] Eliminar un servicio
- */
+
 export async function deleteServicio(token: string, id: string): Promise<FormState> {
   const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL;
   
   try {
-    // Corregido: Se quitó /v1
+    
     const response = await fetch(`${API_URL}/api/admin/servicios/${id}`, {
       method: "DELETE",
       headers: { "Authorization": `Bearer ${token}` },
@@ -333,6 +325,138 @@ export async function deleteServicio(token: string, id: string): Promise<FormSta
     return { success: true, message: "Servicio eliminado exitosamente." };
   } catch (error) {
     console.error("Error en deleteServicio:", error);
+    return { success: false, message: "Error interno del servidor." };
+  }
+}
+
+export async function fetchAllClientes(token: string): Promise<Cliente[]> {
+  const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+  try {
+    const response = await fetch(`${API_URL}/api/admin/clientes`, {
+      method: "GET",
+      headers: { "Authorization": `Bearer ${token}` },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+       console.error("Error fetching clientes:", response.status, response.statusText);
+       if (response.status === 404) {
+         throw new Error("Error 404: La ruta GET /api/admin/clientes no se encontró en el backend.");
+       }
+      throw new Error("Error al obtener los clientes.");
+    }
+    const data: Cliente[] = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error en fetchAllClientes:", error);
+    throw error;
+  }
+}
+
+export async function fetchClienteDetalle(token: string, id: string): Promise<ClienteDetalle> {
+  const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+  try {
+    const response = await fetch(`${API_URL}/api/admin/clientes/${id}`, {
+      method: "GET",
+      headers: { "Authorization": `Bearer ${token}` },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+         throw new Error(`Error 404: No se encontró el cliente con ID ${id}.`);
+      }
+      throw new Error("Error al obtener el detalle del cliente.");
+    }
+    const data: ClienteDetalle = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error en fetchClienteDetalle:", error);
+    throw error;
+  }
+}
+
+export async function createCliente(token: string, values: ClienteFormInput): Promise<FormState> {
+  const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+
+  if (!values.nombre_cliente || !values.dominio || !values.servicios_ids) {
+     return { success: false, message: "Faltan datos en el formulario." };
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/api/admin/clientes`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      
+      body: JSON.stringify(values),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return { success: false, message: errorData.detail || "Error al crear el cliente." };
+    }
+
+    revalidatePath("/admin/clients"); 
+    return { success: true, message: "Cliente creado exitosamente." };
+  } catch (error) {
+    console.error("Error en createCliente:", error);
+    return { success: false, message: "Error interno del servidor." };
+  }
+}
+
+
+export async function updateCliente(token: string, id: string, values: ClienteFormInput): Promise<FormState> {
+  const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+
+  if (!values.nombre_cliente || !values.dominio || !values.servicios_ids) {
+     return { success: false, message: "Faltan datos en el formulario." };
+  }
+  
+  try {
+    const response = await fetch(`${API_URL}/api/admin/clientes/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify(values),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return { success: false, message: errorData.detail || "Error al actualizar el cliente." };
+    }
+
+    revalidatePath("/admin/clients");
+    return { success: true, message: "Cliente actualizado exitosamente." };
+  } catch (error) {
+    console.error("Error en updateCliente:", error);
+    return { success: false, message: "Error interno del servidor." };
+  }
+}
+
+
+export async function deleteCliente(token: string, id: string): Promise<FormState> {
+  const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+  
+  try {
+    const response = await fetch(`${API_URL}/api/admin/clientes/${id}`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return { success: false, message: errorData.detail || "Error al eliminar el cliente." };
+    }
+
+    revalidatePath("/admin/clients");
+    return { success: true, message: "Cliente eliminado exitosamente." };
+  } catch (error) {
+    console.error("Error en deleteCliente:", error);
     return { success: false, message: "Error interno del servidor." };
   }
 }
