@@ -1,10 +1,15 @@
-"use client"; // Necesario para el formulario interactivo
+"use client";
 
-import { useTransition } from "react";
+import { useTransition, useEffect, useState } from "react";
+import { useSession } from "next-auth/react"; 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
+
+
+import { fetchPrompt, updatePrompt } from "@/lib/actions";
+import { FormState } from "@/lib/types"; 
 
 import {
   Card,
@@ -25,18 +30,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton"; 
 
-
-const mockPrompt = `Eres un asistente de soporte técnico amigable y profesional.
-Tu objetivo principal es ayudar a los empleados a resolver problemas comunes.
-
-Servicios que manejas:
-- Reseteo de Contraseña
-- Solicitud de Licencia
-- Problemas de Conexión VPN
-
-Si no puedes resolver el problema, escala el caso a un analista humano.
-Sé breve y claro en tus respuestas.`;
 
 
 const formSchema = z.object({
@@ -46,69 +41,121 @@ const formSchema = z.object({
 export default function AdminPromptPage() {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
-  
+  const [isLoading, setIsLoading] = useState(true);
+
+
+  const { data: session } = useSession();
+ 
+  const token = session?.backendAccessToken as string | undefined;
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      prompt: mockPrompt, 
+      prompt: "", 
     },
   });
 
+  useEffect(() => {
+    if (token) {
+      const loadPrompt = async () => {
+        setIsLoading(true);
+        try {
+         
+          const promptData = await fetchPrompt(token);
+      
+          form.reset({ prompt: promptData.descripcion });
+        } catch (error: any) {
+          toast({
+            title: "Error al cargar el prompt",
+            description: error.message,
+            variant: "destructive",
+          });
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      loadPrompt();
+    }
+ 
+  }, [token]);
+
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    startTransition(() => {
-      // SIMULACIÓN DE LLAMADA AL BACKEND
-      console.log("Datos a guardar:", values);
-      setTimeout(() => {
-        toast({
-          title: "Éxito (Simulado)",
-          description: "El prompt del agente ha sido actualizado.",
-        });
-      }, 1000); // Simular retraso de 1 segundo
+    if (!token) {
+      toast({ title: "Error", description: "No autenticado.", variant: "destructive" });
+      return;
+    }
+
+    startTransition(async () => {
+      let result: FormState;
+      try {
+  
+        result = await updatePrompt(token, values.prompt);
+
+        if (result.success) {
+          toast({
+            title: "Éxito",
+            description: result.message,
+          });
+
+        } else {
+          toast({
+            title: "Error",
+            description: result.message,
+            variant: "destructive",
+          });
+        }
+      } catch (error: any) {
+        toast({ title: "Error inesperado", description: error.message, variant: "destructive" });
+      }
     });
   };
 
   return (
-    <Card className="max-w-4xl mx-auto">
+    <Card className="max-w-4xl mx-auto my-8">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
-        
           <CardHeader>
             <CardTitle>Modificar Prompt</CardTitle>
             <CardDescription>
               Este es el prompt principal (instrucciones) que guía el
-              comportamiento del agente de IA.
+              comportamiento del agente de IA. Los cambios se aplican
+              inmediatamente.
             </CardDescription>
           </CardHeader>
 
-        
           <CardContent>
-            <FormField
-              control={form.control}
-              name="prompt"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="sr-only">Prompt del Sistema</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Eres un agente de soporte amable..."
-                      className="min-h-[400px] font-mono text-sm" // Fuente mono para prompts
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {isLoading ? (
+            
+              <Skeleton className="h-[400px] w-full" />
+            ) : (
+             
+              <FormField
+                control={form.control}
+                name="prompt"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="sr-only">Prompt del Sistema</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Cargando prompt..."
+                        className="min-h-[400px] font-mono text-sm"
+                        {...field}
+                        disabled={isPending} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
           </CardContent>
 
-         
           <CardFooter className="flex justify-end">
             <Button 
               type="submit" 
-              disabled={isPending}
-              // Usamos el mismo color de botón que tu header
-              className="bg-blue-600 hover:bg-blue-700" 
+            
+              disabled={isLoading || isPending} 
             >
               {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Guardar Cambios"}
             </Button>

@@ -52,3 +52,7 @@ export type ClienteFormInput = {
   servicios_ids: string[]; 
 };
 
+export type Prompt = {
+  id_prompt: number;
+  descripcion: string;
+};

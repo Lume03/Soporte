@@ -3,8 +3,7 @@
 import { formatDateTime } from './dateUtils';
 import { toUiStatus } from './data';
 import { revalidatePath } from "next/cache";
-import type { Servicio, FormState, Cliente, ClienteDetalle, ClienteFormInput } from "./types";
-
+import type { Servicio, FormState, Cliente, ClienteDetalle, ClienteFormInput, Prompt } from "./types";
 export type AgentResponse ={
   answer: string;
   thread_id: string;
@@ -457,6 +456,60 @@ export async function deleteCliente(token: string, id: string): Promise<FormStat
     return { success: true, message: "Cliente eliminado exitosamente." };
   } catch (error) {
     console.error("Error en deleteCliente:", error);
+    return { success: false, message: "Error interno del servidor." };
+  }
+}
+
+export async function fetchPrompt(token: string): Promise<Prompt> {
+  const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+  try {
+    const response = await fetch(`${API_URL}/api/admin/prompt`, {
+      method: "GET",
+      headers: { "Authorization": `Bearer ${token}` },
+      cache: "no-store", 
+    });
+
+    if (!response.ok) {
+       console.error("Error fetching prompt:", response.status, response.statusText);
+       if (response.status === 404) {
+         throw new Error("Error 404: La ruta GET /api/admin/prompt no se encontró en el backend.");
+       }
+      throw new Error("Error al obtener el prompt.");
+    }
+    const data: Prompt = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error en fetchPrompt:", error);
+    throw error;
+  }
+}
+
+export async function updatePrompt(token: string, nuevo_texto: string): Promise<FormState> {
+  const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+
+  if (!nuevo_texto || nuevo_texto.trim().length < 50) {
+     return { success: false, message: "El prompt es muy corto. Debe tener al menos 50 caracteres." };
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/api/admin/prompt`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+
+      body: JSON.stringify({ nuevo_texto: nuevo_texto }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return { success: false, message: errorData.detail || "Error al actualizar el prompt." };
+    }
+
+    return { success: true, message: "Prompt actualizado exitosamente." };
+  } catch (error) {
+    console.error("Error en updatePrompt:", error);
     return { success: false, message: "Error interno del servidor." };
   }
 }
