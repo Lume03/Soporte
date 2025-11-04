@@ -23,12 +23,19 @@ export type FaqItem = {
   question: string;
   answer: string;
 };
-export interface Servicio {
-  id: number; 
+export type Servicio = {
+  id_servicio: string; 
   nombre: string;
-}
+};
+
+export type FormState = {
+  success: boolean;
+  message: string;
+};
+
 export type Cliente = {
   id: number;
   nombre: string;
   dominio: string; 
 };
+

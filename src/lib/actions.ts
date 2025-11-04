@@ -2,7 +2,10 @@
 "use server";
 import { formatDateTime } from './dateUtils';
 import { toUiStatus } from './data';
-export interface AgentResponse {
+import { revalidatePath } from "next/cache";
+import type { Servicio, FormState } from "./types";
+
+export type AgentResponse ={
   answer: string;
   thread_id: string;
   answered: boolean;
@@ -210,4 +213,126 @@ export async function escalateTicket(
     status: toUiStatus(data.status),
     last_update: formatDateTime(data.updated_at)
   };
+}
+
+export async function fetchAllServicios(token: string): Promise<Servicio[]> {
+  const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+  try {
+    // Corregido: Se quitó /v1
+    const response = await fetch(`${API_URL}/api/admin/servicios`, {
+      method: "GET",
+      headers: { "Authorization": `Bearer ${token}` },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      console.error("Error fetching servicios:", response.status, response.statusText);
+      // El 404 significa que la ruta GET /api/admin/servicios no existe en tu backend
+      if (response.status === 404) {
+         throw new Error("Error 404: La ruta GET /api/admin/servicios no se encontró en el backend.");
+      }
+      throw new Error("Error al obtener los servicios del servidor.");
+    }
+    const data: Servicio[] = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error en fetchAllServicios:", error);
+    throw error; // Lanzamos el error original
+  }
+}
+
+/**
+ * [ACTION] Crear un nuevo servicio
+ */
+export async function createServicio(token: string, values: { nombre: string }): Promise<FormState> {
+  const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+  const nombre = values.nombre;
+
+  if (!nombre) {
+    return { success: false, message: "El nombre es obligatorio." };
+  }
+
+  try {
+    // Corregido: Se quitó /v1
+    const response = await fetch(`${API_URL}/api/admin/servicios`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({ nombre: nombre }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return { success: false, message: errorData.detail || "Error al crear el servicio." };
+    }
+
+    revalidatePath("/admin/services");
+    return { success: true, message: "Servicio creado exitosamente." };
+  } catch (error) {
+    console.error("Error en createServicio:", error);
+    return { success: false, message: "Error interno del servidor." };
+  }
+}
+
+/**
+ * [ACTION] Actualizar un servicio existente
+ */
+export async function updateServicio(token: string, id: string, values: { nombre: string }): Promise<FormState> {
+  const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+  const nombre = values.nombre;
+  
+  if (!nombre) {
+    return { success: false, message: "El nombre es obligatorio." };
+  }
+  
+  try {
+    // Corregido: Se quitó /v1
+    const response = await fetch(`${API_URL}/api/admin/servicios/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({ nombre: nombre }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return { success: false, message: errorData.detail || "Error al actualizar el servicio." };
+    }
+
+    revalidatePath("/admin/services");
+    return { success: true, message: "Servicio actualizado exitosamente." };
+  } catch (error) {
+    console.error("Error en updateServicio:", error);
+    return { success: false, message: "Error interno del servidor." };
+  }
+}
+
+/**
+ * [ACTION] Eliminar un servicio
+ */
+export async function deleteServicio(token: string, id: string): Promise<FormState> {
+  const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+  
+  try {
+    // Corregido: Se quitó /v1
+    const response = await fetch(`${API_URL}/api/admin/servicios/${id}`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return { success: false, message: errorData.detail || "Error al eliminar el servicio." };
+    }
+
+    revalidatePath("/admin/services");
+    return { success: true, message: "Servicio eliminado exitosamente." };
+  } catch (error) {
+    console.error("Error en deleteServicio:", error);
+    return { success: false, message: "Error interno del servidor." };
+  }
 }
