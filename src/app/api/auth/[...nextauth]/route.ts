@@ -7,8 +7,6 @@ if (!backendApiUrl) {
   throw new Error("Falta la variable de entorno NEXT_PUBLIC_BACKEND_API_URL");
 }
 
-// Esta función construye las opciones de NextAuth para cada petición.
-// Lee la cookie en un contexto donde sí es seguro hacerlo.
 function buildAuthOptions(req: NextRequest): AuthOptions {
   const role = req.cookies.get("login-role")?.value ?? "colaborador";
 
@@ -26,7 +24,6 @@ function buildAuthOptions(req: NextRequest): AuthOptions {
             const googleIdToken = account.id_token;
             if (!googleIdToken) throw new Error("No se encontró el id_token de Google.");
 
-            // Usamos la variable 'role' que leímos fuera del callback.
             const endpoint = `${backendApiUrl}/api/auth/google/login/${role}`;
             
             const response = await fetch(endpoint, {
@@ -47,6 +44,9 @@ function buildAuthOptions(req: NextRequest): AuthOptions {
               token.name = profile.name;
               token.email = profile.email;
             }
+
+            token.role = role;
+
           } catch (error: any) {
             console.error("Error crítico en el callback JWT:", error.message);
             token.error = "AuthenticationError";
@@ -56,12 +56,16 @@ function buildAuthOptions(req: NextRequest): AuthOptions {
         return token;
       },
       async session({ session, token }) {
-        // @ts-ignore
+        
         session.backendAccessToken = token.backendAccessToken;
+
+        session.role = token.role;
+        if (session.user) {
+          session.user.role = token.role;
+        }
         if (token.error) {
-          // @ts-ignore
+         
           session.error = token.error;
-          // @ts-ignore
           session.errorMessage = token.errorMessage;
         }
         return session;
@@ -74,28 +78,25 @@ function buildAuthOptions(req: NextRequest): AuthOptions {
   };
 }
 
-// Unificamos la lógica en una sola función handler.
 async function handler(
   req: NextRequest,
   context: { params: { nextauth: string[] } }
 ) {
-  // 1. Construimos las opciones de autenticación leyendo el rol de la cookie.
+
   const authOptions = buildAuthOptions(req);
   const authHandler = NextAuth(authOptions);
 
-  // 2. Dejamos que NextAuth procese la petición (login, callback, error, etc.).
   const authResponse = await authHandler(req, context);
 
-  // 3. **LA CORRECCIÓN CLAVE**: Creamos un nuevo `NextResponse` a partir de la respuesta de NextAuth.
-  // Esto nos garantiza que siempre tendremos un objeto con el método `.cookies`.
   const response = new NextResponse(authResponse.body, authResponse);
 
-  // 4. Ahora sí podemos limpiar la cookie de forma segura.
-  response.cookies.delete("login-role");
 
-  // 5. Devolvemos la respuesta final.
+  if (req.nextUrl.searchParams.has("code")) {
+    console.log("Callback de Google detectado. Limpiando cookie 'login-role'.");
+    response.cookies.delete("login-role");
+  }
+
   return response;
 }
 
-// Exportamos el mismo handler para GET y POST.
 export { handler as GET, handler as POST };
